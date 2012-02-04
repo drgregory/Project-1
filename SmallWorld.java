@@ -213,18 +213,16 @@ public class SmallWorld {
             context.getCounter(ValueUse.EDGE).increment(1);
         }
     }
-    public static class LoaderReducer extends Reducer<LongWritable, LongWritable, NodeValue, Text> {
-	@Override 
-        public void reduce(LongWritable key, Iterable<LongWritable> values,
+    public static class LoaderReducer extends Reducer<Text, Text, Text, Text> {
+	@Override
+        public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
-	    ArrayList<LongWritable> mySuccessors = new ArrayList<LongWritable>();
-	    Text outputText = new Text();
-	    String outputString = "";
-	    for (LongWritable value : values) {
-		mySuccessors.add(value);
-		outputString += value.toString();
+	    Text concatText = new Text();
+	    String initialString = "";
+	    for (Text value : values) {
+	    	initialString += value.toString() + "$end";
 	    }
-	    outputText.set(outputString);
+	    concatText.set(initialString);
 	    //Object[] s = mySuccessors.toArray();
 	    //int size = mySuccessors.size();
 	    //LongWritable[] successors = new LongWritable[size];
@@ -232,10 +230,10 @@ public class SmallWorld {
 	    //	successors[i] = (LongWritable) s[i];
 	    //}
 	    //ArrayWritable writableSuccessors = new ArrayWritable(org.apache.hadoop.io.LongWritable, successors);
-	    Text theName = new Text();
-	    theName.set(key.toString());
-	    NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
-	    context.write(newKey, outputText);
+	    //Text theName = new Text();
+	    //theName.set(key.toString());
+	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
+	    context.write(key, concatText);
 	}
     }
     // Shares denom argument across the cluster via DistributedCache
