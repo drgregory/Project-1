@@ -286,6 +286,29 @@ public class SmallWorld {
     		}
     		}
     }
+    public static class BFSReducer extends Reducer<Text, Text, Text, Text> {
+	@Override
+        public void reduce(Text key, Iterable<Text> values,
+			   Context context) throws IOException, InterruptedException {
+	    Text concatText = new Text();
+	    String initialString = "";
+	    for (Text value : values) {
+	    	initialString += value.toString() + " $end ";
+	    }
+	    concatText.set(initialString);
+	    //Object[] s = mySuccessors.toArray();
+	    //int size = mySuccessors.size();
+	    //LongWritable[] successors = new LongWritable[size];
+	    //for (int i = 0; i < size; i += 1) {
+	    //	successors[i] = (LongWritable) s[i];
+	    //}
+	    //ArrayWritable writableSuccessors = new ArrayWritable(org.apache.hadoop.io.LongWritable, successors);
+	    //Text theName = new Text();
+	    //theName.set(key.toString());
+	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
+	    context.write(key, concatText);
+	}
+    }
     // Shares denom argument across the cluster via DistributedCache
     public static void shareDenom(String denomStr, Configuration conf) {
         try {
