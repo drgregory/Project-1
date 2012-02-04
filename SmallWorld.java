@@ -381,7 +381,7 @@ public class SmallWorld {
 
         job.setMapOutputKeyClass(LongWritable.class);
         job.setMapOutputValueClass(LongWritable.class);
-        job.setOutputKeyClass(NodeValue.class);
+        job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
         job.setMapperClass(LoaderMap2.class);
@@ -409,13 +409,13 @@ public class SmallWorld {
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
-            job.setMapOutputKeyClass(LongWritable.class);
-            job.setMapOutputValueClass(LongWritable.class);
-            job.setOutputKeyClass(LongWritable.class);
-            job.setOutputValueClass(LongWritable.class);
+            job.setMapOutputKeyClass(Text.class);
+            job.setMapOutputValueClass(Text.class);
+            job.setOutputKeyClass(Text.class);
+            job.setOutputValueClass(Text.class);
 
-            job.setMapperClass(Mapper.class);
-            job.setReducerClass(Reducer.class);
+            job.setMapperClass(BFSMapper.class);
+            job.setReducerClass(BFSReducer.class);
 
             job.setInputFormatClass(SequenceFileInputFormat.class);
             job.setOutputFormatClass(SequenceFileOutputFormat.class);
@@ -432,14 +432,14 @@ public class SmallWorld {
         job = new Job(conf, "hist");
         job.setJarByClass(SmallWorld.class);
 
-        job.setMapOutputKeyClass(LongWritable.class);
-        job.setMapOutputValueClass(LongWritable.class);
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(LongWritable.class);
         job.setOutputValueClass(LongWritable.class);
 
-        job.setMapperClass(Mapper.class);
-        job.setCombinerClass(Reducer.class);
-        job.setReducerClass(Reducer.class);
+        job.setMapperClass(CleanupMapper.class);
+        job.setCombinerClass(CleanupReducer.class);
+        job.setReducerClass(CleanupReducer.class);
 
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
