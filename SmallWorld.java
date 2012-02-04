@@ -269,19 +269,23 @@ public class SmallWorld {
 
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
-    		Matcher m = textDelimiter.matcher(value.toString());
+    		Matcher m = textDelimiter.matcher(values.toString());
     		if (getToBeTraversed(key) && !(getHasBeenTraversed(key))) {
     			while (m.find()) {
     			String current = m.group(0);
     			current = current.substring(0, current.length - 6);
+    			String newVal = current.toString();
     			if (!getHasBeenTraversed(current)) {
     				whatDist = getDistance(key);
-    				String newVal = "";
+    				newVal = "";
     				newVal += getname(current);
     				newVal += " " + (whatDist + 1).toString();
     				newVal += " 1";
     				newVal += " 0";
     			}
+    			Text outputValue = new Text();
+    			outputValue.set(newVal);
+    			context.write(key, outputValue);
     			}
     		}
     		}
@@ -307,6 +311,40 @@ public class SmallWorld {
 	    //theName.set(key.toString());
 	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
 	    context.write(key, concatText);
+	}
+    }
+    public static class CleanupMapper extends Mapper<Text, Text, LongWritable, LongWritable> {
+    	
+    	public static final LongWritable ONE = new LongWritable(1L);
+    	public Pattern textDelimiter = "[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ";
+    	public Pattern p = "[\\S]+";
+
+	public long getDistance(Text source) {
+    		String s = source.toString();
+    		Matcher m = p.matcher(s);
+    		m.find();
+    		return Long.parseLong(m.group(1));
+    	}
+    	
+    	public void map(Text key, Text values, Context context)
+    		throws IOException, InterruptedException {
+    		Matcher m = textDelimiter.matcher(values.toString());
+    		while (m.find()) {
+    			long thisDist = getDistance(key);
+    			LongWritable distKey = new LongWritable(long);
+    			context.write(distKey, ONE);
+    		}
+    		}
+    }
+    public static class CleanupReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
+	@Override
+        public void reduce(LongWritable key, Iterable<LongWritable> values,
+			   Context context) throws IOException, InterruptedException {
+			long sum = 0L;
+	    	for (LongWritable value : values) {
+	    		sum += value.get();
+	    	}
+	    	context.write(key, sum);
 	}
     }
     // Shares denom argument across the cluster via DistributedCache
