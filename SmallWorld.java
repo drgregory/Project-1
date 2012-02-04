@@ -179,7 +179,7 @@ public class SmallWorld {
 /* This example mapper loads in all edges but only propagates a subset.
        You will need to modify this to propagate all edges, but it is 
        included to demonstate how to read & use the denom argument.         */
-    public static class LoaderMap2 extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable> {
+    public static class LoaderMap2 extends Mapper<LongWritable, LongWritable, Text, Text> {
         public long denom;
 
         /* Setup is called automatically once per map task. This will
@@ -207,8 +207,8 @@ public class SmallWorld {
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
             Boolean toBe = Math.random() < 1.0/denom         	
-	    Text keyT = new Text(key.toString() + " -1 " + toBe + " 0");
-	    Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
+	    Text keyT = new Text(key.toString() + " 0 " + toBe + " 0");
+	    Text valueT = new Text(value.toString() + " 0 " + "0" + " 0");	    
 	    context.write(keyT, valueT);
 	    if (toBe) {
             	context.getCounter(ValueUse.EDGE).increment(1);
@@ -222,7 +222,7 @@ public class SmallWorld {
 	    Text concatText = new Text();
 	    String initialString = "";
 	    for (Text value : values) {
-	    	initialString += value.toString() + "$end";
+	    	initialString += value.toString() + " $end ";
 	    }
 	    concatText.set(initialString);
 	    //Object[] s = mySuccessors.toArray();
@@ -237,6 +237,54 @@ public class SmallWorld {
 	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
 	    context.write(key, concatText);
 	}
+    }
+    public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
+    	
+    	public Pattern p = "[\\S]+";
+    	public Pattern textDelimiter = "[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ";
+    	public int getDistance(Text source) {
+    		String s = source.toString();
+    		Matcher m = p.matcher(s);
+    		m.find();
+    		return Integer.parseInt(m.group(1));
+    	}
+    	public int getToBeTraversed(Text source) {
+    		String s = source.toString();
+    		Matcher m = p.matcher(s);
+    		m.find();
+    		return Integer.parseInt(m.group(2));
+    	}
+    	public int getHasBeenTraversed(Text source) {
+    		String s = source.toString();
+    		Matcher m = p.matcher(s);
+    		m.find();
+    		return Integer.parseInt(m.group(3));
+    	}
+    	public String getName(Text source) {
+    		String s = source.toString()
+    		Matcher m = p.matcher(s);
+    		m.find();
+    		return Integer.parseInt(m.group(0));
+    	}
+
+    	public void map(Text key, Text values, Context context)
+    		throws IOException, InterruptedException {
+    		Matcher m = textDelimiter.matcher(value.toString());
+    		if (getToBeTraversed(key) && !(getHasBeenTraversed(key))) {
+    			while (m.find()) {
+    			String current = m.group(0);
+    			current = current.substring(0, current.length - 6);
+    			if (!getHasBeenTraversed(current)) {
+    				whatDist = getDistance(key);
+    				String newVal = "";
+    				newVal += getname(current);
+    				newVal += " " + (whatDist + 1).toString();
+    				newVal += " 1";
+    				newVal += " 0";
+    			}
+    			}
+    		}
+    		}
     }
     // Shares denom argument across the cluster via DistributedCache
     public static void shareDenom(String denomStr, Configuration conf) {
@@ -296,7 +344,7 @@ public class SmallWorld {
         // Repeats your BFS mapreduce
         int i=0;
         // Will need to change terminating conditions to respond to data
-        while (i<1) {
+        while (i<MAX_ITERATIONS) {
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
