@@ -206,11 +206,13 @@ public class SmallWorld {
         @Override
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
-
-	    context.write(key, value);
-
-            // Example of using a counter (counter tagged by EDGE)
-            context.getCounter(ValueUse.EDGE).increment(1);
+            Boolean toBe = Math.random() < 1.0/denom         	
+	    Text keyT = new Text(key.toString() + " -1 " + toBe + " 0");
+	    Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
+	    context.write(keyT, valueT);
+	    if (toBe) {
+            	context.getCounter(ValueUse.EDGE).increment(1);
+	    }
         }
     }
     public static class LoaderReducer extends Reducer<LongWritable, LongWritable, NodeValue, Text> {
