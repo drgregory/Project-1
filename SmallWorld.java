@@ -18,6 +18,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.Math;
 import java.util.*;
+import java.util.regex.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
@@ -206,11 +207,11 @@ public class SmallWorld {
         @Override
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
-            Boolean toBe = Math.random() < 1.0/denom         	
+            int toBe = Math.random() < 1.0/denom ? 1 : 0;
 	    Text keyT = new Text(key.toString() + " 0 " + toBe + " 0");
 	    Text valueT = new Text(value.toString() + " 0 " + "0" + " 0");	    
 	    context.write(keyT, valueT);
-	    if (toBe) {
+	    if (toBe == 1) {
             	context.getCounter(ValueUse.EDGE).increment(1);
 	    }
         }
@@ -240,28 +241,41 @@ public class SmallWorld {
     }
     public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
     	
-    	public Pattern p = "[\\S]+";
-    	public Pattern textDelimiter = "[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ";
+    	public Pattern p = Pattern.compile("[\\S]+");
+    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ");
     	public int getDistance(Text source) {
     		String s = source.toString();
     		Matcher m = p.matcher(s);
     		m.find();
-    		return Integer.parseInt(m.group(1));
+		m.find();
+    		return Integer.parseInt(m.group(0));
     	}
     	public int getToBeTraversed(Text source) {
     		String s = source.toString();
     		Matcher m = p.matcher(s);
     		m.find();
-    		return Integer.parseInt(m.group(2));
+		m.find();
+		m.find();
+    		return Integer.parseInt(m.group(0));
     	}
     	public int getHasBeenTraversed(Text source) {
-    		String s = source.toString();
+	    String s = source.toString();
     		Matcher m = p.matcher(s);
     		m.find();
-    		return Integer.parseInt(m.group(3));
+		m.find();
+		m.find();
+		m.find();
+    		return Integer.parseInt(m.group(0));
     	}
-    	public String getName(Text source) {
-    		String s = source.toString()
+	public int getHasBeenTraversed(String s) {
+    		Matcher m = p.matcher(s);
+    		m.find();
+		m.find();
+		m.find();
+		m.find();
+    		return Integer.parseInt(m.group(0));
+    	}
+    	public int getName(String s) {
     		Matcher m = p.matcher(s);
     		m.find();
     		return Integer.parseInt(m.group(0));
@@ -270,16 +284,16 @@ public class SmallWorld {
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
-    		if (getToBeTraversed(key) && !(getHasBeenTraversed(key))) {
+    		if ( (getToBeTraversed(key) == 1) && (getHasBeenTraversed(key) == 0) ) {
     			while (m.find()) {
     			String current = m.group(0);
-    			current = current.substring(0, current.length - 6);
+    			current = current.substring(0, current.length() - 6);
     			String newVal = current.toString();
-    			if (!getHasBeenTraversed(current)) {
-    				whatDist = getDistance(key);
+    			if (getHasBeenTraversed(current) == 0) {
+    				int whatDist = getDistance(key);
     				newVal = "";
-    				newVal += getname(current);
-    				newVal += " " + (whatDist + 1).toString();
+    				newVal += getName(current);
+    				newVal += " " + (whatDist + 1);
     				newVal += " 1";
     				newVal += " 0";
     			}
@@ -291,12 +305,24 @@ public class SmallWorld {
     		}
     }
     public static class BFSReducer extends Reducer<Text, Text, Text, Text> {
+
+	public HashMap<String, Text> nameToUpdated = new HashMap<String, Text>();
+
+	public String getName(Text source) {
+	    String s = source.toString();
+	    Matcher m = p.matcher(s);
+	    m.find();
+	    return m.group(0);
+    	}
+
 	@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
+	    HashMap<String, Text> nameToUpdated = new HashMap<String, Text>();
 	    Text concatText = new Text();
 	    String initialString = "";
 	    for (Text value : values) {
+		
 	    	initialString += value.toString() + " $end ";
 	    }
 	    concatText.set(initialString);
@@ -316,14 +342,15 @@ public class SmallWorld {
     public static class CleanupMapper extends Mapper<Text, Text, LongWritable, LongWritable> {
     	
     	public static final LongWritable ONE = new LongWritable(1L);
-    	public Pattern textDelimiter = "[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ";
-    	public Pattern p = "[\\S]+";
+    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ");
+    	public Pattern p = Pattern.compile("[\\S]+");
 
 	public long getDistance(Text source) {
     		String s = source.toString();
     		Matcher m = p.matcher(s);
     		m.find();
-    		return Long.parseLong(m.group(1));
+		m.find();
+    		return Long.parseLong(m.group(0));
     	}
     	
     	public void map(Text key, Text values, Context context)
@@ -331,7 +358,7 @@ public class SmallWorld {
     		Matcher m = textDelimiter.matcher(values.toString());
     		while (m.find()) {
     			long thisDist = getDistance(key);
-    			LongWritable distKey = new LongWritable(long);
+    			LongWritable distKey = new LongWritable(thisDist);
     			context.write(distKey, ONE);
     		}
     		}
@@ -344,7 +371,8 @@ public class SmallWorld {
 	    	for (LongWritable value : values) {
 	    		sum += value.get();
 	    	}
-	    	context.write(key, sum);
+		LongWritable finalSum = new LongWritable(sum);
+	    	context.write(key, finalSum);
 	}
     }
     // Shares denom argument across the cluster via DistributedCache
@@ -379,8 +407,8 @@ public class SmallWorld {
         Job job = new Job(conf, "load graph");
         job.setJarByClass(SmallWorld.class);
 
-        job.setMapOutputKeyClass(LongWritable.class);
-        job.setMapOutputValueClass(LongWritable.class);
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
@@ -432,8 +460,8 @@ public class SmallWorld {
         job = new Job(conf, "hist");
         job.setJarByClass(SmallWorld.class);
 
-        job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(Text.class);
+        job.setMapOutputKeyClass(LongWritable.class);
+        job.setMapOutputValueClass(LongWritable.class);
         job.setOutputKeyClass(LongWritable.class);
         job.setOutputValueClass(LongWritable.class);
 
