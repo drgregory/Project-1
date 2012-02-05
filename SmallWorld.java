@@ -124,6 +124,9 @@ public class SmallWorld {
 	public void setNumOfSearches(int with) {
 		this.numOfSeraches = with;
 	}
+	public ArrayList<LongWritable> getDistances() {
+		return this.distances;
+	}
 	public Text makeIntoText() {
 		long thisName = name.get();
 		String information = "";
@@ -386,12 +389,29 @@ public class SmallWorld {
 	public Pattern special = Pattern.compile("[$]search");
 	public String isSpecial = "$search";
 	
-    	public void map(Text key, Text value, Context context)
+	
+	public void map(Text key, Text value, Context context)
+		throws IOException, InterruptedException {
+	Vertex keyV = new Vertex(key);
+	Vertex valueV = new Vertex(value);
+	int searchNum = keyV.getNumOfSearches();
+	if (searchNum) {
+		key = key.setNumOfSearches(0);
+		Text howManySearches = new Text(searchSign + searchNum);
+		Text k = keyV.makeIntoText();
+		Text v = valueV.makeIntoText();
+		context.write(v, howManySearches);
+		context.write(k, v);
+	} else {
+		context.write(keyV.makeIntoText(), valueV.makeIntoText());
+	}
+}
+    	/*public void map(Text key, Text value, Context context)
     		throws IOException, InterruptedException {
 	    //Vertex v1 = new Vertex(key);
 	    //Vertex v2 = new Vertex(value);
 	    Matcher m = textDelimiter.matcher(value.toString());
-    		Boolean search = getToBeTraversed(key) == 1 /*&& getHasBeenTraversed(key) == 0*/;
+    		Boolean search = getToBeTraversed(key) == 1 /*&& getHasBeenTraversed(key) == 0;
     		if (search) {
     			String whatToChange = key.toString();
     			whatToChange = whatToChange.trim();
@@ -413,7 +433,7 @@ public class SmallWorld {
     				context.write(key, outputValue);
     			}
     		}
-    		}
+    		}*/
     }
     public static class BFSReducer extends Reducer<Text, Text, Text, Text> {
 
@@ -445,7 +465,32 @@ public class SmallWorld {
     	}
 
 	Pattern p = Pattern.compile("[$]search[\\d]+");
-	@Override
+	
+	public static Pattern special = Pattern.compile("[$][$][$][\\d]+");
+public void reduce(Text key, Iterable<Text> values, Context context)
+		throws IOException, InterruptedException {
+	int numOfSearches = 0;
+	Vertex keyV = new Vertex(key);
+	for (Text t : values) {
+		if(t.find("[$][$][$][\\d]+")) {//Special character for searchnum
+	String s = t.toString();
+	Matcher extract = special.matcher(s);
+	extract.find();
+	String isolatedPart = extract.group(0);
+	Matcher getDig = Pattern.compile("[\\d]+").matcher(isolatedPart);
+	getDig.find();
+	numOfSearches += Integer.parseInt(getDig.group(0));
+		}	
+	}
+	keyV.setNumOfSearches(numOfSearches);
+	Text keyT = keyV.makeIntoText();
+	for (Text t : values) {
+		if(!t.find("[$][$][$][\\d]+")) { //Same special character
+			context.write(keyT, t);
+		}	
+	}
+}	
+	/*@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
 	    Boolean searchFrom = false;
@@ -465,7 +510,7 @@ public class SmallWorld {
 	    }
 	    long num = dCounter;/*context.getCounter(BFSTracker.GLOBALCOUNT).getValue();*/
 	    //System.out.println("!" + num + "!");
-	    Counter thisCounter = null;
+	    /*Counter thisCounter = null;
 	    for (Counter c : Counter.values()) {
            	if (c.whichCounter == num) {
            		thisCounter = c;
@@ -476,7 +521,7 @@ public class SmallWorld {
 	    if (thisCounter != null) {
 		//Reporter.incrCounter(thisCounter, 1);
 		//context.getCounter(thisCounter).increment(1);
-	    }
+	    /*}
 	    String k = getName(key);
 	    k += " " + distance;
 	    k += searchFrom ? " 1 " : " 0 ";
@@ -484,7 +529,7 @@ public class SmallWorld {
 	    Text finalKey = new Text(k);
 	    Text finalVals = new Text(concatVals);
 	    context.write(finalKey, finalVals);
-	}
+	}*/
     }
     public static class CleanupMapper extends Mapper<Text, Text, LongWritable, LongWritable> {
     	
