@@ -503,8 +503,11 @@ public class SmallWorld {
 	getDig.find();
 	
 	Matcher newUpdates = Pattern.compile("[$][$]dist [[\\d] ]+").matcher(s);
-	while (newUpdates.find()) {
-		updates.add(new LongWritable(Long.parseLong(newUpdates.group(0)) + 1));
+	if (newUpdates.find()) {
+		Matcher someDig = Pattern.compile("[\\d]+").matcher(newUpdates.group(0));
+		while (someDig.find() {
+		updates.add(new LongWritable(Long.parseLong(someDig.group(0)) + 1));
+		}
 	}
 	numOfSearches += Integer.parseInt(getDig.group(0));
 		}	
