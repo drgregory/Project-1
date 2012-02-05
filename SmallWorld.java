@@ -282,7 +282,7 @@ public class SmallWorld {
     	}
 
 	public Pattern special = Pattern.compile("[$]search");
-	public Text isSpecial = new Text("$search $end ");
+	public String isSpecial = "$search";
 	
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
@@ -299,7 +299,8 @@ public class SmallWorld {
     			while (m.find()) {
     				String s = m.group(0);
     				Text t = new Text(s);
-    				context.write(t, isSpecial);
+    				Text specialSearch = new Text(isSpecial + getDistance(key));
+    				context.write(t, specialSearch);
     			}
     		} else {
     			while (m.find()) {
