@@ -491,9 +491,11 @@ public class SmallWorld {
 		throws IOException, InterruptedException {
 	int numOfSearches = 0;
 	Vertex keyV = new Vertex(key);
+	ArrayList<Text> saveText = new ArrayList<Text>();
 	ArrayList<LongWritable> updates = new ArrayList<LongWritable>();
 	for (Text t : values) {
 	String s = t.toString();
+	saveText.add(t);
 		if(s.matches(".*[$][$][$][\\d]+.*")) {//Special character for searchnum
 		System.out.println("==================================");
 	Matcher extract = special.matcher(s);
@@ -505,7 +507,7 @@ public class SmallWorld {
 	Matcher newUpdates = Pattern.compile("[$][$]dist [[\\d] ]+").matcher(s);
 	if (newUpdates.find()) {
 		Matcher someDig = Pattern.compile("[\\d]+").matcher(newUpdates.group(0));
-		while (someDig.find() {
+		while (someDig.find()) {
 		updates.add(new LongWritable(Long.parseLong(someDig.group(0)) + 1));
 		}
 	}
@@ -515,14 +517,16 @@ public class SmallWorld {
 	keyV.appendDistances(updates);
 	keyV.setNumOfSearches(numOfSearches);
 	Text keyT = keyV.makeIntoText();
-	for (Text t : values) {
-		String s2 = t.toString();
+	Iterator<Text> iter = values.iterator();
+	for (Text t2 : saveText) {
+		String s2 = t2.toString();
+		System.out.println("!!!!!!!!!!!!!" + s2 + "!!!!!!!!!!!!!");
 		if(!s2.matches(".*[$][$][$][\\d]+.*")) { //Same special character
 			System.out.println("++++++++++++++++++++++++++++++++++++++");
-			context.write(keyT, t);
+			context.write(keyT, t2);
 		}	
 	}
-}	
+}		
 	/*@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
