@@ -296,13 +296,14 @@ public class SmallWorld {
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
     		if ( (getToBeTraversed(key) == 1) && (getHasBeenTraversed(key) == 0) ) {
+		    Text outputValue = new Text();
     			while (m.find()) {
     			String current = m.group(0);
     			current = current.substring(0, current.length() - 6);
     			String newVal = current.toString();
     			if (getHasBeenTraversed(current) == 0) {
     				String theName = getName(current);
-    				if (!getUpdated(current).equals("false") && !changes.get(current))
+    				if (!getUpdatedFlag(current).equals("false") && !changes.get(current)) {
     				int whatDist = getDistance(key);
     				newVal = "";
     				newVal += theName;
@@ -310,11 +311,12 @@ public class SmallWorld {
     				newVal += " 1";
     				newVal += " 0";
     				changes.put(theName, true);
+				outputValue.set(newVal);
     				context.write(key, outputValue);
     			}
-    			Text outputValue = new Text();
+			}
     			outputValue.set(newVal);
-    			if (!getUpdated(current).equals("false") && !changes.get(current)) {
+    			if (!getUpdatedFlag(current).equals("false") && !changes.get(current)) {
     			context.write(key, outputValue);
     			}
     			}
@@ -322,6 +324,8 @@ public class SmallWorld {
     		}
     }
     public static class BFSReducer extends Reducer<Text, Text, Text, Text> {
+
+    	public Pattern p = Pattern.compile("[\\S]+");
 
 	public String getName(Text source) {
 	    String s = source.toString();
