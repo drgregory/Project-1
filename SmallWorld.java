@@ -391,6 +391,60 @@ public class SmallWorld {
 			}
 		}
 	}
+	
+		public static class BFSMapper2 extends Mapper<Node, Node, Node, Node> {
+	
+		public static Node searchNode;
+		
+		public void map(Node key, Node value, Context context)
+				throws IOException, InterruptedException {
+			if (k.searchesInto) {
+				k.searchesInto = false;
+				searchNode = new Node(-2);
+				Scanner names = new Scanner(k.names);
+				Scanner distances = new Scanner(k.distances);
+				while (names.hasNextLong()) {
+					long n = names.nextLong();
+					long d = distances.nextLong();
+					searchNode.addDistance(d);
+					searchNode.addName(n);
+				}
+				context.write(value, searchNode);
+			}
+			context.write(key, value);
+		}
+	}
+
+	public static class BFSReduce2 extends Reducer<Node, Node, Node, Node> {
+	
+		public static Node searchNode = new Node(-2);
+		
+		public void reduce(Node key, Iterable<Node> values, Context context)
+				throws IOException, InterruptedException {
+			ArrayList<Node> savedNodes = new ArrayList<Node>();
+			for (Node n : values) {
+				if (n.name == -2) {
+					Scanner names = new Scanner(n.names);
+					Scanner distances = new Scanner(n.distances);
+					while (names.hasNextLong()) {
+						long nam = names.nextLong();
+						String namS = nam.toString();
+						long dis = distances.nextLong();
+						if (!key.names.contains(namS)) {
+							key.distances.add(dis);
+							key.names.add(nam);
+							key.searchesInto = true;
+						}
+					}
+				} else {
+					savedNodes.add(n);
+				}
+			}
+			for (Node x : savedNodes) {
+				context.write(key, x);
+			}
+		}
+	}	
     public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
     	
     	public Pattern p = Pattern.compile("[\\S]+");
@@ -599,6 +653,31 @@ public class SmallWorld {
 	    context.write(finalKey, finalVals);
 	}*/
     }
+    public static class CleanupMap extends Mapper<Node, Node, LongWritable, LongWritable> {
+		
+		public static LongWritable ONE = new LongWritable(1L);
+		
+		public void map(Node key, Node value, Context context)
+				throws IOException, InterruptedException {
+			Scanner s = new Scanner(key.distances);
+			while(s.hasNextLong()) {
+				long l = s.nextLong();
+				context.write(new LongWritable(l), ONE);
+			}
+		}
+	}
+
+	public static class CleanupReduce extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
+	
+		public void reduce(LongWritable key, Iterable<LongWritable> values, Context context)
+				throws IOException, InterruptedException {
+			long sum = 0L;
+			for (LongWritable v : values) {
+				sum += 1L;
+			}
+			context.write(key, new LongWritable(sum));
+		}
+	}
     public static class CleanupMapper extends Mapper<Text, Text, LongWritable, LongWritable> {
     	
     	public static final LongWritable ONE = new LongWritable(1L);
@@ -716,13 +795,13 @@ public class SmallWorld {
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
-            job.setMapOutputKeyClass(Text.class);
-            job.setMapOutputValueClass(Text.class);
-            job.setOutputKeyClass(Text.class);
-            job.setOutputValueClass(Text.class);
+            job.setMapOutputKeyClass(Node.class);
+            job.setMapOutputValueClass(Node.class);
+            job.setOutputKeyClass(Node.class);
+            job.setOutputValueClass(Node.class);
 
-            job.setMapperClass(BFSMapper.class);
-            job.setReducerClass(BFSReducer.class);
+            job.setMapperClass(BFSMapper2.class);
+            job.setReducerClass(BFSReducer2.class);
 
             job.setInputFormatClass(SequenceFileInputFormat.class);
             job.setOutputFormatClass(SequenceFileOutputFormat.class);
@@ -748,9 +827,9 @@ public class SmallWorld {
         job.setOutputKeyClass(LongWritable.class);
         job.setOutputValueClass(LongWritable.class);
 
-        job.setMapperClass(CleanupMapper.class);
-        job.setCombinerClass(CleanupReducer.class);
-        job.setReducerClass(CleanupReducer.class);
+        job.setMapperClass(CleanupMap.class);
+        job.setCombinerClass(CleanupReduce.class);
+        job.setReducerClass(CleanupReduc.class);
 
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
