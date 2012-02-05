@@ -52,70 +52,85 @@ public class SmallWorld {
     
     public static enum BFSTracker{GLOBALCOUNT};
     
-    public static enum Counter {
-    		C0(0L,0), C1(0L,1), C2(0L,2), C3(0L,3), C4(0L,4), C5(0L,5),
-    		 C6(0L,6), C7(0L,7), C8(0L,8), C9(0L,9), C10(0L,10), C11(0L,11),
-  				 C12(0L,12), C13(0L.13), C14(0L,14), C15(0L,15), C16(0L,16), C17(0L,17),
-  				 C18(0L,18), C19(0L,19), C20(0L,20);
-    				 
-    				 public long count;
-    				 public int whichCounter;
-    				 
-    				 public Counter(long l, int wC) {
-    				 	count = l;
-    				 	whichCounter = wC;
-    				 }
+    public static enum Counter{C0(0L), C1(1L), C2(2L), C3(3L), C4(4L), C5(5L),
+	    C6(6L), C7(7L), C8(8L), C9(9L), C10(10L), C11(11L), C12(12L), C13(13L),
+	    C14(14L), C15(15L), C16(16L), C17(17L), C18(18L), C19(19L), C20(20L);
+    	
+    //public long count;
+	public long whichCounter;
+    	
+    Counter(long wC) {
+	//count = l;
+	whichCounter = wC;
     }
-    public static int dataFinishedCounter = 0;
+    };
+    public static long dCounter = 0;
     
-    public static class Vertex implements Writable {
+    public static class Vertex {
 	public LongWritable name;
-	public LongWritable[] distances;
-	public boolean goToNext;
+	public ArrayList<LongWritable> distances;
+	public ArrayList<LongWritable> hasSeen;
+	public int numOfSearches;
+	public boolean isSpecial = false;
 	public static Pattern nameParse = Pattern.compile("[\\S]+");
-	public static Pattern trueParse = Pattern.compile("true");
+	//public static Pattern trueParse = Pattern.compile("true");
 	public static Pattern distanceParse = Pattern.compile("[$]start [[\\d] ]+ [$]end");
-	public static Pattern specDistParse = Pattern.compile("[\\d]");
+	public static Pattern digitParse = Pattern.compile("[\\d]+");
+	public static Pattern numSearchParse = Pattern.compile("[$]numSearch [\\d]+ [$]stopNumSearch");
 
-	public NodeValue(LongWritable n) {
+	public Vertex(LongWritable n, int numSearches) {
 	    name = n;
-	    goToNext = false;
+	    numOfSearches = numSearches;
 	}
-	public NodeValue(Text information) {
+	public Vertex(Text information) {
 		String s = information.toString();
 		
 		Matcher matchName = nameParse.matcher(s);
 		matchName.find();
-		this.name = new LongWritable(Long.parseLong(m.group(0)));
+		this.name = new LongWritable(Long.parseLong(matchName.group(0)));
 		
-		Matcher matchBool = trueParse.matcher(s);
-		this.goToNext = matchBool.find();
+		/*Matcher matchBool = trueParse.matcher(s);
+		  this.goToNext = matchBool.find();*/
 		
 		Matcher dists = distanceParse.matcher(s);
 		dists.find();
 		String d = dists.group(0);
 		
 		ArrayList<LongWritable> dis = new ArrayList<LongWritable>();
-		Match getDists = specDistParse.matcher(d);
+		Matcher getDists = digitParse.matcher(d);
+		//int i = 0;
 		while (getDists.find()) {
-			dis.add(getDists.group(0));
+		    //i += 1;
+		    dis.add(new LongWritable (Long.parseLong(getDists.group(0))));
 		}
-		Object[] myDistances = dis.toArray();
-		LongWritable[] finalDistances = new LongWritable[myDistances.size()];
-		for (int i = 0; i < myDistances.size(); i += 1) {
+		this.distances = dis;
+
+		Matcher numSearcher = numSearchParse.matcher(s);
+		numSearcher.find();
+		String searchNum = numSearcher.group(0);
+		Matcher getThisNum = digitParse.matcher(searchNum);
+		getThisNum.find();
+		int howManySearches = Integer.parseInt(getThisNum.group(0));
+		this.numOfSearches = howManySearches;
+		/*if  (i > 0) {
+		    Object[] myDistances = dis.toArray();
+		    LongWritable[] finalDistances = new LongWritable[dis.size()];
+		    for (int i = 0; i < dis.size(); i += 1) {
 			finalDistances[i] = (LongWritable) myDistances[i];
-		}
-		this.distances = finalDistances;
+		    }
+		    this.distances = finalDistances;
+		    }*/
 	}
 	public Text makeIntoText() {
 		long thisName = name.get();
 		String information = "";
 		information += thisName + " ";
-		information += goToNext;
-		information += " $start"
+		//information += goToNext;
+		information += " $numSearch " + numOfSearches + " $stopNumSearch";
+		information += " $start";
 		if (distances != null) {
-			for (int i = 0; i < distances.length; i += 1) {
-				information += " " + distances[i];
+		    for (int i = 0; i < distances.size(); i += 1) {
+			information += " " + distances.get(i);
 			}
 		}
 		information += " $end";
@@ -241,7 +256,7 @@ public class SmallWorld {
 /* This example mapper loads in all edges but only propagates a subset.
        You will need to modify this to propagate all edges, but it is 
        included to demonstate how to read & use the denom argument.         */
-    public static class LoaderMap2 extends Mapper<LongWritable, LongWritable, Text, Text> {
+    public static class LoaderMap2 extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable> {
         public long denom;
 
         /* Setup is called automatically once per map task. This will
@@ -268,26 +283,48 @@ public class SmallWorld {
         @Override
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
-            int toBe = Math.random() < 1.0/denom ? 1 : 0;
-            int initialDist = toBe == 1 ? 0 : -1;
-	    Text keyT = new Text(key.toString() + " " + initialDist + " " + toBe + " 0");
-	    Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
-	    context.write(keyT, valueT);
-	    if (toBe == 1) {
+            //int toBe = Math.random() < 1.0/denom ? 1 : 0;
+            //int initialDist = toBe == 1 ? 0 : -1;
+	    //Text keyT = new Text(key.toString() + " " + initialDist + " " + toBe + " 0");
+	    //Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
+	    //context.write(keyT, valueT);
+	    context.write(key, value);
+	    //if (toBe == 1) {
             	context.getCounter(ValueUse.EDGE).increment(1);
-	    }
+		//}
         }
     }
-    public static class LoaderReducer extends Reducer<Text, Text, Text, Text> {
+    public static class LoaderReducer extends Reducer<LongWritable, LongWritable, Text, Text> {
+	public long denom;
+	@Override	
+        public void setup(Context context) {
+            try {
+                Configuration conf = context.getConfiguration();
+                Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
+                BufferedReader reader = new BufferedReader(
+                                        new FileReader(cachedDenomPath.toString()));
+                String denomStr = reader.readLine();
+                reader.close();
+                denom = Long.decode(denomStr);
+            } catch (IOException ioe) {
+                System.err.println("IOException reading denom from distributed cache");
+                System.err.println(ioe.toString());
+            }
+        }
+
 	@Override
-        public void reduce(Text key, Iterable<Text> values,
+        public void reduce(LongWritable key, Iterable<LongWritable> values,
 			   Context context) throws IOException, InterruptedException {
-	    Text concatText = new Text();
-	    String initialString = "";
-	    for (Text value : values) {
-	    	initialString += value.toString() + " $end ";
+	    boolean shouldVisitNext = Math.random() < 1.0/denom;
+	    //Vertex kVert = new Vertex(key, shouldVisitNext);
+	    //Text concatText = new Text();
+	    //String initialString = "";
+	    for (LongWritable value : values) {
+		//Vertex valVert = new Vertex(value, false);
+		//context.write(kVert.makeIntoText(), valVert.makeIntoText());
+	    	//initialString += value.toString() + " $end ";
 	    }
-	    concatText.set(initialString);
+	    //concatText.set(initialString);
 	    //Object[] s = mySuccessors.toArray();
 	    //int size = mySuccessors.size();
 	    //LongWritable[] successors = new LongWritable[size];
@@ -298,7 +335,7 @@ public class SmallWorld {
 	    //Text theName = new Text();
 	    //theName.set(key.toString());
 	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
-	    context.write(key, concatText);
+	    //context.write(key, concatText);
 	}
     }
     public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
@@ -346,9 +383,11 @@ public class SmallWorld {
 	public Pattern special = Pattern.compile("[$]search");
 	public String isSpecial = "$search";
 	
-    	public void map(Text key, Text values, Context context)
+    	public void map(Text key, Text value, Context context)
     		throws IOException, InterruptedException {
-    		Matcher m = textDelimiter.matcher(values.toString());
+	    //Vertex v1 = new Vertex(key);
+	    //Vertex v2 = new Vertex(value);
+	    Matcher m = textDelimiter.matcher(value.toString());
     		Boolean search = getToBeTraversed(key) == 1 /*&& getHasBeenTraversed(key) == 0*/;
     		if (search) {
     			String whatToChange = key.toString();
@@ -415,21 +454,26 @@ public class SmallWorld {
 	    	if (m.matches()) {
 	    		searchFrom = true;
 	    		c = c.substring(7);
-	    		dataFinishedCounter += 1;
+	    		//dataFinishedCounter += 1;
 	    		distance = Integer.parseInt(c) + 1;
 	    	} else {
 	    		concatVals += c + " $end ";
 	    	}
 	    }
-	    	int num = context.findCounter(BFSTracker.GLOBALCOUNTER).getCounter();
-	        enum thisCounter;
-           for (Counter c : Counter.values()) {
+	    long num = dCounter;/*context.getCounter(BFSTracker.GLOBALCOUNT).getValue();*/
+	    //System.out.println("!" + num + "!");
+	    Counter thisCounter = null;
+	    for (Counter c : Counter.values()) {
            	if (c.whichCounter == num) {
            		thisCounter = c;
-           		break
+           		break;
            	}
-	       context.incrCounter(thisCounter, 1);
-
+	    }
+	    System.out.println(thisCounter);
+	    if (thisCounter != null) {
+		//Reporter.incrCounter(thisCounter, 1);
+		//context.getCounter(thisCounter).increment(1);
+	    }
 	    String k = getName(key);
 	    k += " " + distance;
 	    k += searchFrom ? " 1 " : " 0 ";
@@ -456,25 +500,34 @@ public class SmallWorld {
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
-    		while (m.find()) {
+    		/*while (m.find()) {
     			long thisDist = getDistance(key);
     			LongWritable distKey = new LongWritable(thisDist);
     			context.write(distKey, ONE);
+			}*/
+		for (Counter c : Counter.values()) {
+		    long l = context.getCounter(c).getValue();
+		    if (l != 0) {
+			LongWritable lw = new LongWritable(l);
+	    
+			context.write(new LongWritable(c.whichCounter), lw);
+		    }
     		}
-    		}
+	}
     }
     public static class CleanupReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
 	@Override
         public void reduce(LongWritable key, Iterable<LongWritable> values,
 			   Context context) throws IOException, InterruptedException {
-			if (key.get() >= 0) {
-			long sum = 0L;
+	    //if (key.get() >= 0) {
+	    //		long sum = 0L;
 	    	for (LongWritable value : values) {
-	    		sum += value.get();
+		    context.write(key, value);
+		    //sum += value.get();
 	    	}
-		LongWritable finalSum = new LongWritable(sum);
-	    	context.write(key, finalSum);
-			}
+		//LongWritable finalSum = new LongWritable(sum);
+	    	//context.write(key, finalSum);
+		//	}
 	}
     }
     // Shares denom argument across the cluster via DistributedCache
@@ -536,7 +589,9 @@ public class SmallWorld {
         int i=0;
         // Will need to change terminating conditions to respond to data
         while (i<MAX_ITERATIONS) {
-        	
+
+
+
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
@@ -559,8 +614,8 @@ public class SmallWorld {
 
             job.waitForCompletion(true);
             i++;
-            context.incrCounter(BFSTracker.GLOBALCOUNTER, 1);
-            dataFinishedCounter = 0;
+	    job.getCounters().findCounter(BFSTracker.GLOBALCOUNT).increment(1);
+	    dCounter += 1;
         }
 
         // Mapreduce config for histogram computation
