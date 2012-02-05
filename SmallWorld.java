@@ -321,13 +321,13 @@ public class SmallWorld {
 	@Override
         public void reduce(LongWritable key, Iterable<LongWritable> values,
 			   Context context) throws IOException, InterruptedException {
-	    boolean shouldVisitNext = Math.random() < 1.0/denom;
-	    //Vertex kVert = new Vertex(key, shouldVisitNext);
+	    int keyNumOfSearches = Math.random() < 1.0/denom ? 1 : 0;
+	    Vertex kVert = new Vertex(key, keyNumOfSearches);
 	    //Text concatText = new Text();
 	    //String initialString = "";
 	    for (LongWritable value : values) {
-		//Vertex valVert = new Vertex(value, false);
-		//context.write(kVert.makeIntoText(), valVert.makeIntoText());
+		Vertex valVert = new Vertex(value, 0);
+		context.write(kVert.makeIntoText(), valVert.makeIntoText());
 	    	//initialString += value.toString() + " $end ";
 	    }
 	    //concatText.set(initialString);
@@ -467,7 +467,7 @@ public class SmallWorld {
 	Pattern p = Pattern.compile("[$]search[\\d]+");
 	
 	public static Pattern special = Pattern.compile("[$][$][$][\\d]+");
-public void reduce(Text key, Iterable<Text> values, Context context)
+	public void reduce(Text key, Iterable<Text> values, Context context)
 		throws IOException, InterruptedException {
 	int numOfSearches = 0;
 	Vertex keyV = new Vertex(key);
@@ -610,8 +610,8 @@ public void reduce(Text key, Iterable<Text> values, Context context)
         Job job = new Job(conf, "load graph");
         job.setJarByClass(SmallWorld.class);
 
-        job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(Text.class);
+        job.setMapOutputKeyClass(LongWritable.class);
+        job.setMapOutputValueClass(LongWritable.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
