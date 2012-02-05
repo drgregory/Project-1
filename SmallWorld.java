@@ -332,26 +332,34 @@ public class SmallWorld {
     		return Integer.parseInt(m.group(0));
     	}
     	
+    	public int getDistance(Text source) {
+	    String s = source.toString();
+    		Matcher m = finder.matcher(s);
+    		m.find();
+    		m.find();
+    		return Integer.parseInt(m.group(0));
+    	}
+    	
 	Pattern p = Pattern.compile("[$]search[\\d]+");
 	@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
 	    Boolean searchFrom = false;
 	    String concatVals = "";
-	    int distance = -1;
+	    int distance = getDistance(key);
 	    for (Text v : values) {
 	    	String c = v.toString();
 	    	Matcher m = p.matcher(c);
 	    	if (m.matches()) {
 	    		searchFrom = true;
 	    		c = c.substring(7);
-	    		distance = Integer.parseInt(c);
+	    		distance = Integer.parseInt(c) + 1;
 	    	} else {
 	    		concatVals += c + " $end ";
 	    	}
 	    }
 	    String k = getName(key);
-	    k += " " + (distance + 1);
+	    k += " " + distance;
 	    k += searchFrom ? " 1 " : " 0 ";
 	    k += getHasBeenTraversed(key);
 	    Text finalKey = new Text(k);
