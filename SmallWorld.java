@@ -219,6 +219,42 @@ public class SmallWorld {
             return use.name() + ": " + value;
         }
     }
+    
+    public static class Node implements Writable {
+		public long name;
+		public String distances;
+		public String names;
+		public boolean searchesInto;
+		
+		public Node(long n) {
+			name = n;
+			distances = "";
+			names = "";
+			searchesInto = false;
+		}
+			
+
+		public void write(DataOutput out) throws IOException {
+			out.writeLong(name);
+			out.writeUTF(distances);
+			out.writeUTF(names);
+			out.writeBoolean(searchesInto);
+		}
+
+		public void readFields(DataInput in) throws IOException {
+			name = in.readLong();
+			distances = in.readUTF();
+			names = in.readUTF();
+			searchesInto = in.readBoolean();
+		}
+
+		public void addDistance(long d) {
+			distances += d.toString() + " ";
+		}
+		public void addName(long n) {
+			names += n.toString() + " ";
+	        }
+           }
 
 
     /* This example mapper loads in all edges but only propagates a subset.
