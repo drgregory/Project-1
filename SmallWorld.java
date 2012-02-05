@@ -74,7 +74,7 @@ public class SmallWorld {
 	public boolean isSpecial = false;
 	public static Pattern nameParse = Pattern.compile("[\\S]+");
 	//public static Pattern trueParse = Pattern.compile("true");
-	public static Pattern distanceParse = Pattern.compile("[$]start [[\\d] ]+ [$]end");
+	public static Pattern distanceParse = Pattern.compile("[$]start [[\\d] ]* [$]end");
 	public static Pattern digitParse = Pattern.compile("[\\d]+");
 	public static Pattern numSearchParse = Pattern.compile("[$]numSearch [\\d]+ [$]stopNumSearch");
 
