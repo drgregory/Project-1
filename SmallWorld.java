@@ -287,7 +287,7 @@ public class SmallWorld {
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
-    		Boolean search = getToBeTraversed(key) == 1 && hasBeenTraversed(key) == 0;
+    		Boolean search = getToBeTraversed(key) == 1 && getHasBeenTraversed(key) == 0;
     		if (search) {
     			while (m.find()) {
     				String s = m.group(0);
@@ -307,18 +307,18 @@ public class SmallWorld {
     }
     public static class BFSReducer extends Reducer<Text, Text, Text, Text> {
 
-	public HashMap<String, Text> nameToUpdated = new HashMap<String, Text>();
-
+    	public Pattern finder = Pattern.compile("[\\S]+");
+	
 	public String getName(Text source) {
 	    String s = source.toString();
-	    Matcher m = p.matcher(s);
+	    Matcher m = finder.matcher(s);
 	    m.find();
 	    return m.group(0);
     	}
     	
     	public int getHasBeenTraversed(Text source) {
 	    String s = source.toString();
-    		Matcher m = p.matcher(s);
+    		Matcher m = finder.matcher(s);
     		m.find();
 		m.find();
 		m.find();
@@ -333,15 +333,13 @@ public class SmallWorld {
 	    Boolean searchFrom = false;
 	    String concatVals = "";
 	    int distance = 0;
-	    for (int i = 0; i < values.size(); i += 1) {
-	    	String c = values.get(i).toString();
+	    for (Text v : values) {
+	    	String c = v.toString();
 	    	Matcher m = p.matcher(c);
 	    	if (m.matches()) {
 	    		searchFrom = true;
-	    		c = c.subString(7);
+	    		c = c.substring(7);
 	    		distance = Integer.parseInt(c);
-	    		values.remove(i);
-	    		i -= 1;
 	    	} else {
 	    		concatVals += c + " $end ";
 	    	}
@@ -350,8 +348,9 @@ public class SmallWorld {
 	    k += " " + (distance + 1);
 	    k += " 1 ";
 	    k += getHasBeenTraversed(key);
+	    Text finalKey = new Text(k);
 	    Text finalVals = new Text(concatVals);
-	    context.write(finalKey, concatVals);
+	    context.write(finalKey, finalVals);
 	}
     }
     public static class CleanupMapper extends Mapper<Text, Text, LongWritable, LongWritable> {
