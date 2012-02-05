@@ -346,7 +346,7 @@ public class SmallWorld {
 	    }
 	    String k = getName(key);
 	    k += " " + (distance + 1);
-	    k += " 1 ";
+	    k += searchFrom ? " 1 " : " 0 ";
 	    k += getHasBeenTraversed(key);
 	    Text finalKey = new Text(k);
 	    Text finalVals = new Text(concatVals);
