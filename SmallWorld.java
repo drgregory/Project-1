@@ -281,25 +281,32 @@ public class SmallWorld {
     		return Integer.parseInt(m.group(0));
     	}
 
+	public Pattern special = Pattern.compile("[$]search");
+	public Text isSpecial = new Text("$search $end ");
+	
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
-    		if ( (getToBeTraversed(key) == 1) && (getHasBeenTraversed(key) == 0) ) {
-    			while (m.find()) {
+    		Boolean search = getToBeTraversed(key) == 1 && hasBeenTraversed(key) == 0;
+    		/*while (m.find()) {
     			String current = m.group(0);
     			current = current.substring(0, current.length() - 6);
-    			String newVal = current.toString();
-    			if (getHasBeenTraversed(current) == 0) {
-    				int whatDist = getDistance(key);
-    				newVal = "";
-    				newVal += getName(current);
-    				newVal += " " + (whatDist + 1);
-    				newVal += " 1";
-    				newVal += " 0";
+    			if (special.matches(current)) {
+    				search = true;
     			}
-    			Text outputValue = new Text();
-    			outputValue.set(newVal);
-    			context.write(key, outputValue);
+    		}*/
+    		if (search) {
+    			while (m.find()) {
+    				String s = m.group(0);
+    				Text t = new Text(s);
+    				context.write(t, isSpecial);
+    			}
+    		} else {
+    			while (m.find()) {
+    				String current = m.group(0);
+    				current = current.substring(0, current.length() - 6);
+    				Text outputValue = new Text(current);
+    				context.write(key, outputValue);
     			}
     		}
     		}
@@ -318,7 +325,15 @@ public class SmallWorld {
 	@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
-	    HashMap<String, Text> nameToUpdated = new HashMap<String, Text>();
+	    Boolean searchFrom = false;
+	    for (int i = 0; i < values.size(); i += 1) {
+	    	String c = values.get(i).toString();
+	    	if (c.equals("$search")) {
+	    		searchFrom = true;
+	    		values.remove(i);
+	    	}
+	    }
+	    String k = key.toString();
 	    Text concatText = new Text();
 	    String initialString = "";
 	    for (Text value : values) {
@@ -326,16 +341,6 @@ public class SmallWorld {
 	    	initialString += value.toString() + " $end ";
 	    }
 	    concatText.set(initialString);
-	    //Object[] s = mySuccessors.toArray();
-	    //int size = mySuccessors.size();
-	    //LongWritable[] successors = new LongWritable[size];
-	    //for (int i = 0; i < size; i += 1) {
-	    //	successors[i] = (LongWritable) s[i];
-	    //}
-	    //ArrayWritable writableSuccessors = new ArrayWritable(org.apache.hadoop.io.LongWritable, successors);
-	    //Text theName = new Text();
-	    //theName.set(key.toString());
-	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
 	    context.write(key, concatText);
 	}
     }
