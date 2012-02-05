@@ -52,21 +52,64 @@ public class SmallWorld {
     
     public static int dataFinishedCounter = 0;
     
-    public static class NodeValue implements Writable {
-	public Text name;
-	public LongWritable dist;
-	public ArrayList<LongWritable> successors;
-	public boolean hasTraversed = false;
+    public static class Vertex implements Writable {
+	public LongWritable name;
+	public LongWritable[] distances;
+	public boolean goToNext;
+	public static Pattern nameParse = Pattern.compile("[\\S]+");
+	public static Pattern trueParse = Pattern.compile("true");
+	public static Pattern distanceParse = Pattern.compile("[$]start [[\\d] ]+ [$]end");
+	public static Pattern specDistParse = Pattern.compile("[\\d]");
 
-	public NodeValue(Text n, long d,
-			 ArrayList<LongWritable> s) {
+	public NodeValue(LongWritable n) {
 	    name = n;
-	    dist = new LongWritable(d);
-	    successors = s;
+	    goToNext = false;
+	}
+	public NodeValue(Text information) {
+		String s = information.toString();
+		
+		Matcher matchName = nameParse.matcher(s);
+		matchName.find();
+		this.name = new LongWritable(Long.parseLong(m.group(0)));
+		
+		Matcher matchBool = trueParse.matcher(s);
+		this.goToNext = matchBool.find();
+		
+		Matcher dists = distanceParse.matcher(s);
+		dists.find();
+		String d = dists.group(0);
+		
+		ArrayList<LongWritable> dis = new ArrayList<LongWritable>();
+		Match getDists = specDistParse.matcher(d);
+		while (getDists.find()) {
+			dis.add(getDists.group(0));
+		}
+		Object[] myDistances = dis.toArray();
+		LongWritable[] finalDistances = new LongWritable[myDistances.size()];
+		for (int i = 0; i < myDistances.size(); i += 1) {
+			finalDistances[i] = (LongWritable) myDistances[i];
+		}
+		this.distances = finalDistances;
+	}
+	public Text makeIntoText() {
+		long thisName = name.get();
+		String information = "";
+		information += thisName + " ";
+		information += goToNext;
+		information += " $start"
+		if (distances != null) {
+			for (int i = 0; i < distances.length; i += 1) {
+				information += " " + distances[i];
+			}
+		}
+		information += " $end";
+		Text textInfo = new Text();
+		textInfo.set(information);
+		return textInfo;
 	}
 
-	public void write(DataOutput out) throws IOException {
-            name.write(out);
+	/**public void write(DataOutput out) throws IOException {
+            out.write(
 	    dist.write(out);
 	}
 
@@ -85,7 +128,7 @@ public class SmallWorld {
 
         public String toString() {
             return name.toString() + ": " + dist.get();
-        }
+        }*/
     }	
 	
     // Example writable type
