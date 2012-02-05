@@ -288,13 +288,6 @@ public class SmallWorld {
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
     		Boolean search = getToBeTraversed(key) == 1 && hasBeenTraversed(key) == 0;
-    		/*while (m.find()) {
-    			String current = m.group(0);
-    			current = current.substring(0, current.length() - 6);
-    			if (special.matches(current)) {
-    				search = true;
-    			}
-    		}*/
     		if (search) {
     			while (m.find()) {
     				String s = m.group(0);
@@ -322,27 +315,43 @@ public class SmallWorld {
 	    m.find();
 	    return m.group(0);
     	}
-
+    	
+    	public int getHasBeenTraversed(Text source) {
+	    String s = source.toString();
+    		Matcher m = p.matcher(s);
+    		m.find();
+		m.find();
+		m.find();
+		m.find();
+    		return Integer.parseInt(m.group(0));
+    	}
+    	
+	Pattern p = Pattern.compile("[$]search[\\d]+");
 	@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
 	    Boolean searchFrom = false;
+	    String concatVals = "";
+	    int distance = 0;
 	    for (int i = 0; i < values.size(); i += 1) {
 	    	String c = values.get(i).toString();
-	    	if (c.equals("$search")) {
+	    	Matcher m = p.matcher(c);
+	    	if (m.matches()) {
 	    		searchFrom = true;
+	    		c = c.subString(7);
+	    		distance = Integer.parseInt(c);
 	    		values.remove(i);
+	    		i -= 1;
+	    	} else {
+	    		concatVals += c + " $end ";
 	    	}
 	    }
-	    String k = key.toString();
-	    Text concatText = new Text();
-	    String initialString = "";
-	    for (Text value : values) {
-		
-	    	initialString += value.toString() + " $end ";
-	    }
-	    concatText.set(initialString);
-	    context.write(key, concatText);
+	    String k = getName(key);
+	    k += " " + (distance + 1);
+	    k += " 1 ";
+	    k += getHasBeenTraversed(key);
+	    Text finalVals = new Text(concatVals);
+	    context.write(finalKey, concatVals);
 	}
     }
     public static class CleanupMapper extends Mapper<Text, Text, LongWritable, LongWritable> {
