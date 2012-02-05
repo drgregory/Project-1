@@ -81,6 +81,10 @@ public class SmallWorld {
 	public Vertex(LongWritable n, int numSearches) {
 	    name = n;
 	    numOfSearches = numSearches;
+	    this.distances = new ArrayList<LongWritable>();
+	    if (numSearches != 0) {
+	    	this.distances.add(new LongWritable(0L));
+	    }
 	}
 	public Vertex(Text information) {
 		String s = information.toString();
