@@ -493,9 +493,9 @@ public class SmallWorld {
 	Vertex keyV = new Vertex(key);
 	ArrayList<LongWritable> updates = new ArrayList<LongWritable>();
 	for (Text t : values) {
-		if(t.find("[$][$][$][\\d]+") >= 0) {//Special character for searchnum
-		System.out.println("==================================");
 	String s = t.toString();
+		if(s.matches(".*[$][$][$][\\d]+.*")) {//Special character for searchnum
+		System.out.println("==================================");
 	Matcher extract = special.matcher(s);
 	extract.find();
 	String isolatedPart = extract.group(0);
@@ -513,7 +513,8 @@ public class SmallWorld {
 	keyV.setNumOfSearches(numOfSearches);
 	Text keyT = keyV.makeIntoText();
 	for (Text t : values) {
-		if(t.find("[$][$][$][\\d]+") < 0) { //Same special character
+		String s2 = t.toString();
+		if(s2.matches(".*[$][$][$][\\d]+.*")) { //Same special character
 			System.out.println("++++++++++++++++++++++++++++++++++++++");
 			context.write(keyT, t);
 		}	
