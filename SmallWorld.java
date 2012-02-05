@@ -257,60 +257,6 @@ public class SmallWorld {
            }
 
 
-    /* This example mapper loads in all edges but only propagates a subset.
-       You will need to modify this to propagate all edges, but it is 
-       included to demonstate how to read & use the denom argument.         */
-    public static class LoaderMap extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable> {
-        public long denom;
-
-        /* Setup is called automatically once per map task. This will
-           read denom in from the DistributedCache, and it will be
-           available to each call of map later on via the instance
-           variable.                                                  */
-        @Override
-        public void setup(Context context) {
-            try {
-                Configuration conf = context.getConfiguration();
-                Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
-                BufferedReader reader = new BufferedReader(
-                                        new FileReader(cachedDenomPath.toString()));
-                String denomStr = reader.readLine();
-                reader.close();
-                denom = Long.decode(denomStr);
-            } catch (IOException ioe) {
-                System.err.println("IOException reading denom from distributed cache");
-                System.err.println(ioe.toString());
-            }
-        }
-
-        /* Will need to modify to not lose any edges. */
-        @Override
-        public void map(LongWritable key, LongWritable value, Context context)
-                throws IOException, InterruptedException {
-            // Send edge forward only if part of random subset
-            if (Math.random() < 1.0/denom) {
-                context.write(key, value);
-            }
-            // Example of using a counter (counter tagged by EDGE)
-            context.getCounter(ValueUse.EDGE).increment(1);
-        }
-    }
-
-    /* Insert your mapreduces here
-       (still feel free to edit elsewhere) */
-    /* The second mapper . . . */
-    /*public static class ProcesserMap extends Mapper<NodeValue, ArrayWritable, NodeValue, LongWritable> {
-
-        public void map(LongWritable key, ArrayWritable value, Context context)
-                throws IOException, InterruptedException {
-	    if (key.dist() >= 0  && !key.hasTraversed) {
-		key.setHasTraversed(true);
-		for (LongWritable v : value) {
-		    context.write(key, v);
-		}
-	    }
-        }
-	}*/
 /* This example mapper loads in all edges but only propagates a subset.
        You will need to modify this to propagate all edges, but it is 
        included to demonstate how to read & use the denom argument.         */
@@ -352,7 +298,7 @@ public class SmallWorld {
 		//}
         }
     }
-    public static class LoaderReducer extends Reducer<LongWritable, LongWritable, Text, Text> {
+    public static class LoaderReducer2 extends Reducer<LongWritable, LongWritable, Text, Text> {
 	public long denom;
 	@Override	
         public void setup(Context context) {
@@ -396,6 +342,55 @@ public class SmallWorld {
 	    //context.write(key, concatText);
 	}
     }
+    
+    public static class LoaderMap extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable> {
+        public long denom;
+
+        /* Setup is called automatically once per map task. This will
+           read denom in from the DistributedCache, and it will be
+           available to each call of map later on via the instance
+           variable.                                                  */
+        @Override
+        public void setup(Context context) {
+            try {
+                Configuration conf = context.getConfiguration();
+                Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
+                BufferedReader reader = new BufferedReader(
+                                        new FileReader(cachedDenomPath.toString()));
+                String denomStr = reader.readLine();
+                reader.close();
+                denom = Long.decode(denomStr);
+            } catch (IOException ioe) {
+                System.err.println("IOException reading denom from distributed cache");
+                System.err.println(ioe.toString());
+            }
+        }
+
+        /* Will need to modify to not loose any edges. */
+        @Override
+        public void map(LongWritable key, LongWritable value, Context context)
+                throws IOException, InterruptedException {
+			Node keyNode = new Node(key.get());
+			Node valueNode = new Node(value.get());
+            // Example of using a counter (counter tagged by EDGE)
+            context.getCounter(ValueUse.EDGES).increment(1);
+			context.write(keyNode, valueNode);
+        }
+    }
+	
+	public static class LoaderReduce extends Reducer<Node, Node, Node, Node> {
+		public void reduce(Node key, Iterable<Node> values, Context context)
+				throws IOException, InterruptedException {	
+			if (Math.random() < 1.0/denom) {
+				key.addDistance(0L);
+				key.addName(key.name);
+				key.searchesInto = true;
+			}
+			for (Node v : values) {
+				context.write(key, v);
+			}
+		}
+	}
     public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
     	
     	public Pattern p = Pattern.compile("[\\S]+");
@@ -688,13 +683,13 @@ public class SmallWorld {
         Job job = new Job(conf, "load graph");
         job.setJarByClass(SmallWorld.class);
 
-        job.setMapOutputKeyClass(LongWritable.class);
-        job.setMapOutputValueClass(LongWritable.class);
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(Text.class);
+        job.setMapOutputKeyClass(Node.class);
+        job.setMapOutputValueClass(Node.class);
+        job.setOutputKeyClass(Node.class);
+        job.setOutputValueClass(Node.class);
 
-        job.setMapperClass(LoaderMap2.class);
-        job.setReducerClass(LoaderReducer.class);
+        job.setMapperClass(LoaderMap.class);
+        job.setReducerClass(LoaderReducer2.class);
 
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(SequenceFileOutputFormat.class);
