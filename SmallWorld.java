@@ -332,7 +332,7 @@ public class SmallWorld {
 			   Context context) throws IOException, InterruptedException {
 	    Boolean searchFrom = false;
 	    String concatVals = "";
-	    int distance = 0;
+	    int distance = -1;
 	    for (Text v : values) {
 	    	String c = v.toString();
 	    	Matcher m = p.matcher(c);
