@@ -122,7 +122,10 @@ public class SmallWorld {
 		    }*/
 	}
 	public void setNumOfSearches(int with) {
-		this.numOfSeraches = with;
+		this.numOfSearches = with;
+	}
+	public int getNumOfSearches() {
+	    return this.numOfSearches;
 	}
 	public ArrayList<LongWritable> getDistances() {
 		return this.distances;
@@ -395,9 +398,9 @@ public class SmallWorld {
 	Vertex keyV = new Vertex(key);
 	Vertex valueV = new Vertex(value);
 	int searchNum = keyV.getNumOfSearches();
-	if (searchNum) {
-		key = key.setNumOfSearches(0);
-		Text howManySearches = new Text(searchSign + searchNum);
+	if (searchNum > 0) {
+		keyV.setNumOfSearches(0);
+		Text howManySearches = new Text("$$$" + searchNum);
 		Text k = keyV.makeIntoText();
 		Text v = valueV.makeIntoText();
 		context.write(v, howManySearches);
@@ -472,7 +475,7 @@ public class SmallWorld {
 	int numOfSearches = 0;
 	Vertex keyV = new Vertex(key);
 	for (Text t : values) {
-		if(t.find("[$][$][$][\\d]+")) {//Special character for searchnum
+		if(t.find("[$][$][$][\\d]+") >= 0) {//Special character for searchnum
 	String s = t.toString();
 	Matcher extract = special.matcher(s);
 	extract.find();
@@ -485,7 +488,7 @@ public class SmallWorld {
 	keyV.setNumOfSearches(numOfSearches);
 	Text keyT = keyV.makeIntoText();
 	for (Text t : values) {
-		if(!t.find("[$][$][$][\\d]+")) { //Same special character
+		if(t.find("[$][$][$][\\d]+") < 0) { //Same special character
 			context.write(keyT, t);
 		}	
 	}
