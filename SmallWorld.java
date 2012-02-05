@@ -121,6 +121,9 @@ public class SmallWorld {
 		    this.distances = finalDistances;
 		    }*/
 	}
+	public void setNumOfSearches(int with) {
+		this.numOfSeraches = with;
+	}
 	public Text makeIntoText() {
 		long thisName = name.get();
 		String information = "";
