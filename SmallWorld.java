@@ -208,8 +208,9 @@ public class SmallWorld {
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
             int toBe = Math.random() < 1.0/denom ? 1 : 0;
-	    Text keyT = new Text(key.toString() + " 0 " + toBe + " 0");
-	    Text valueT = new Text(value.toString() + " 0 " + "0" + " 0");	    
+            int initialDist = toBe == 1 ? 0 : -1
+	    Text keyT = new Text(key.toString() + " " + initialDist + " " + toBe + " 0");
+	    Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
 	    context.write(keyT, valueT);
 	    if (toBe == 1) {
             	context.getCounter(ValueUse.EDGE).increment(1);
