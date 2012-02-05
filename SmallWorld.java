@@ -121,6 +121,11 @@ public class SmallWorld {
 		    this.distances = finalDistances;
 		    }*/
 	}
+	public void appendDistances(ArrayList<LongWritable> d) {
+		for (LongWritable l : d) {
+			this.distances.add(l);
+		}
+	}
 	public void setNumOfSearches(int with) {
 		this.numOfSearches = with;
 	}
@@ -400,7 +405,11 @@ public class SmallWorld {
 	int searchNum = keyV.getNumOfSearches();
 	if (searchNum > 0) {
 		keyV.setNumOfSearches(0);
-		Text howManySearches = new Text("$$$" + searchNum);
+		String dists = "";
+		for (LongWritable l : keyV.getDistances()) {
+			dists += " " + l.get();
+		}
+		Text howManySearches = new Text("$$$" + searchNum + " $$dist" + dists);
 		Text k = keyV.makeIntoText();
 		Text v = valueV.makeIntoText();
 		context.write(v, howManySearches);
@@ -474,6 +483,7 @@ public class SmallWorld {
 		throws IOException, InterruptedException {
 	int numOfSearches = 0;
 	Vertex keyV = new Vertex(key);
+	ArrayList<LongWritable> updates = new ArrayList<LongWritable>();
 	for (Text t : values) {
 		if(t.find("[$][$][$][\\d]+") >= 0) {//Special character for searchnum
 	String s = t.toString();
@@ -482,9 +492,15 @@ public class SmallWorld {
 	String isolatedPart = extract.group(0);
 	Matcher getDig = Pattern.compile("[\\d]+").matcher(isolatedPart);
 	getDig.find();
+	
+	Matcher newUpdates = Pattern.compile("[$][$]dist [[\\d] ]+").matcher(s);
+	while (newUpdates.find()) {
+		updates.add(new LongWritable(Long.parseLong(newUpdates.group(0)) + 1));
+	}
 	numOfSearches += Integer.parseInt(getDig.group(0));
 		}	
 	}
+	keyV.appendDistances(updates);
 	keyV.setNumOfSearches(numOfSearches);
 	Text keyT = keyV.makeIntoText();
 	for (Text t : values) {
@@ -548,37 +564,42 @@ public class SmallWorld {
     		return Long.parseLong(m.group(0));
     	}
     	
-    	public void map(Text key, Text values, Context context)
+    	public void map(Text key, Text value, Context context)
     		throws IOException, InterruptedException {
-    		Matcher m = textDelimiter.matcher(values.toString());
+    			Vertex keyV = new Vertex(key);
+    			ArrayList<LongWritable> dists = keyV.getDistances();
+    			for (LongWritable l : dists) {
+    				Context.write(l, ONE);
+    			}
+    		//Matcher m = textDelimiter.matcher(values.toString());
     		/*while (m.find()) {
     			long thisDist = getDistance(key);
     			LongWritable distKey = new LongWritable(thisDist);
     			context.write(distKey, ONE);
 			}*/
-		for (Counter c : Counter.values()) {
+		/*for (Counter c : Counter.values()) {
 		    long l = context.getCounter(c).getValue();
 		    if (l != 0) {
 			LongWritable lw = new LongWritable(l);
 	    
 			context.write(new LongWritable(c.whichCounter), lw);
 		    }
-    		}
+    		}*/
 	}
     }
     public static class CleanupReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
 	@Override
         public void reduce(LongWritable key, Iterable<LongWritable> values,
 			   Context context) throws IOException, InterruptedException {
-	    //if (key.get() >= 0) {
-	    //		long sum = 0L;
+	    if (key.get() >= 0) {
+	    	long sum = 0L;
 	    	for (LongWritable value : values) {
-		    context.write(key, value);
-		    //sum += value.get();
+		    //context.write(key, value);
+		    sum += value.get();
 	    	}
-		//LongWritable finalSum = new LongWritable(sum);
-	    	//context.write(key, finalSum);
-		//	}
+		LongWritable finalSum = new LongWritable(sum);
+	    	context.write(key, finalSum);
+			}
 	}
     }
     // Shares denom argument across the cluster via DistributedCache
