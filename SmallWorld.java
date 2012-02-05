@@ -396,12 +396,14 @@ public class SmallWorld {
 	@Override
         public void reduce(LongWritable key, Iterable<LongWritable> values,
 			   Context context) throws IOException, InterruptedException {
+			if (key.get() >= 0) {
 			long sum = 0L;
 	    	for (LongWritable value : values) {
 	    		sum += value.get();
 	    	}
 		LongWritable finalSum = new LongWritable(sum);
 	    	context.write(key, finalSum);
+			}
 	}
     }
     // Shares denom argument across the cluster via DistributedCache
