@@ -282,7 +282,7 @@ public class SmallWorld {
     		m.find();
     		return m.group(0);
     	}
-    	public getUpdatedFlag(String s) {
+    	public String getUpdatedFlag(String s) {
     		Matcher m = p.matcher(s);
     		m.find();
     		m.find();
