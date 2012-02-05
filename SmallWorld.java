@@ -292,6 +292,7 @@ public class SmallWorld {
     			String whatToChange = key.toString();
     			whatToChange = whatToChange.trim();
     			whatToChange = whatToChange.substring(0, whatToChange.length() - 1).concat("1");
+    			key.set(whatToChange);
     			while (m.find()) {
     				String s = m.group(0);
     				s = s.substring(0, s.length() - 6);
