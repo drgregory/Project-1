@@ -50,6 +50,22 @@ public class SmallWorld {
     // Example enumerated type, used by EValue and Counter example
     public static enum ValueUse {EDGE};
     
+    public static enum BFSTracker{GLOBALCOUNT};
+    
+    public static enum Counter {
+    		C0(0L,0), C1(0L,1), C2(0L,2), C3(0L,3), C4(0L,4), C5(0L,5),
+    		 C6(0L,6), C7(0L,7), C8(0L,8), C9(0L,9), C10(0L,10), C11(0L,11),
+  				 C12(0L,12), C13(0L.13), C14(0L,14), C15(0L,15), C16(0L,16), C17(0L,17),
+  				 C18(0L,18), C19(0L,19), C20(0L,20);
+    				 
+    				 public long count;
+    				 public int whichCounter;
+    				 
+    				 public Counter(long l, int wC) {
+    				 	count = l;
+    				 	whichCounter = wC;
+    				 }
+    }
     public static int dataFinishedCounter = 0;
     
     public static class Vertex implements Writable {
@@ -333,7 +349,7 @@ public class SmallWorld {
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
-    		Boolean search = getToBeTraversed(key) == 1 && getHasBeenTraversed(key) == 0;
+    		Boolean search = getToBeTraversed(key) == 1 /*&& getHasBeenTraversed(key) == 0*/;
     		if (search) {
     			String whatToChange = key.toString();
     			whatToChange = whatToChange.trim();
@@ -385,7 +401,7 @@ public class SmallWorld {
     		m.find();
     		return Integer.parseInt(m.group(0));
     	}
-    	
+
 	Pattern p = Pattern.compile("[$]search[\\d]+");
 	@Override
         public void reduce(Text key, Iterable<Text> values,
@@ -405,6 +421,15 @@ public class SmallWorld {
 	    		concatVals += c + " $end ";
 	    	}
 	    }
+	    	int num = context.findCounter(BFSTracker.GLOBALCOUNTER).getCounter();
+	        enum thisCounter;
+           for (Counter c : Counter.values()) {
+           	if (c.whichCounter == num) {
+           		thisCounter = c;
+           		break
+           	}
+	       context.incrCounter(thisCounter, 1);
+
 	    String k = getName(key);
 	    k += " " + distance;
 	    k += searchFrom ? " 1 " : " 0 ";
@@ -511,6 +536,7 @@ public class SmallWorld {
         int i=0;
         // Will need to change terminating conditions to respond to data
         while (i<MAX_ITERATIONS) {
+        	
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
@@ -529,10 +555,11 @@ public class SmallWorld {
             FileInputFormat.addInputPath(job, new Path("bfs-" + i + "-out"));
             FileOutputFormat.setOutputPath(job, new Path("bfs-"+ (i+1) +"-out"));
 
-	    i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
+	    //i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
 
             job.waitForCompletion(true);
             i++;
+            context.incrCounter(BFSTracker.GLOBALCOUNTER, 1);
             dataFinishedCounter = 0;
         }
 
