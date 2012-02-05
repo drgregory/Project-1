@@ -514,7 +514,7 @@ public class SmallWorld {
 	Text keyT = keyV.makeIntoText();
 	for (Text t : values) {
 		String s2 = t.toString();
-		if(s2.matches(".*[$][$][$][\\d]+.*")) { //Same special character
+		if(!s2.matches(".*[$][$][$][\\d]+.*")) { //Same special character
 			System.out.println("++++++++++++++++++++++++++++++++++++++");
 			context.write(keyT, t);
 		}	
