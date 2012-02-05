@@ -93,18 +93,22 @@ public class SmallWorld {
 		  this.goToNext = matchBool.find();*/
 		
 		Matcher dists = distanceParse.matcher(s);
-		dists.find();
-		String d = dists.group(0);
+		String d = null;
+		if (dists.find()) {
+		    d = dists.group(0);
+		}
 		
 		ArrayList<LongWritable> dis = new ArrayList<LongWritable>();
-		Matcher getDists = digitParse.matcher(d);
-		//int i = 0;
-		while (getDists.find()) {
-		    //i += 1;
-		    dis.add(new LongWritable (Long.parseLong(getDists.group(0))));
+		if (d != null) {
+		    Matcher getDists = digitParse.matcher(d);
+		    //int i = 0;
+		    while (getDists.find()) {
+			//i += 1;
+			dis.add(new LongWritable (Long.parseLong(getDists.group(0))));
+		    }
 		}
 		this.distances = dis;
-
+		
 		Matcher numSearcher = numSearchParse.matcher(s);
 		numSearcher.find();
 		String searchNum = numSearcher.group(0);
@@ -569,7 +573,7 @@ public class SmallWorld {
     			Vertex keyV = new Vertex(key);
     			ArrayList<LongWritable> dists = keyV.getDistances();
     			for (LongWritable l : dists) {
-    				Context.write(l, ONE);
+    				context.write(l, ONE);
     			}
     		//Matcher m = textDelimiter.matcher(values.toString());
     		/*while (m.find()) {
