@@ -50,6 +50,8 @@ public class SmallWorld {
     // Example enumerated type, used by EValue and Counter example
     public static enum ValueUse {EDGE};
     
+    public static int dataFinishedCounter = 0;
+    
     public static class NodeValue implements Writable {
 	public Text name;
 	public LongWritable dist;
@@ -354,6 +356,7 @@ public class SmallWorld {
 	    	if (m.matches()) {
 	    		searchFrom = true;
 	    		c = c.substring(7);
+	    		dataFinishedCounter += 1;
 	    		distance = Integer.parseInt(c) + 1;
 	    	} else {
 	    		concatVals += c + " $end ";
@@ -483,8 +486,11 @@ public class SmallWorld {
             FileInputFormat.addInputPath(job, new Path("bfs-" + i + "-out"));
             FileOutputFormat.setOutputPath(job, new Path("bfs-"+ (i+1) +"-out"));
 
+	    i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
+
             job.waitForCompletion(true);
             i++;
+            dataFinishedCounter = 0;
         }
 
         // Mapreduce config for histogram computation
