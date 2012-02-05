@@ -291,9 +291,11 @@ public class SmallWorld {
     		if (search) {
     			while (m.find()) {
     				String s = m.group(0);
+    				s = s.substring(0, s.length() - 6);
     				Text t = new Text(s);
     				Text specialSearch = new Text(isSpecial + getDistance(key));
     				context.write(t, specialSearch);
+    				context.write(key, t);
     			}
     		} else {
     			while (m.find()) {
