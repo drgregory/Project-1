@@ -208,8 +208,8 @@ public class SmallWorld {
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
             int toBe = Math.random() < 1.0/denom ? 1 : 0;
-	    Text keyT = new Text(key.toString() + " 0 " + toBe + " 0");
-	    Text valueT = new Text(value.toString() + " 0 " + "0" + " 0");	    
+	    Text keyT = new Text(key.toString() + " 0 " + toBe + " 0" + " false");
+	    Text valueT = new Text(value.toString() + " 0 " + "0" + " 0" + " false");	    
 	    context.write(keyT, valueT);
 	    if (toBe == 1) {
             	context.getCounter(ValueUse.EDGE).increment(1);
@@ -241,8 +241,10 @@ public class SmallWorld {
     }
     public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
     	
+    	public HashMap<String,Boolean> changes = new HashMap<String,Boolean>();
+    	
     	public Pattern p = Pattern.compile("[\\S]+");
-    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ");
+    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ");
     	public int getDistance(Text source) {
     		String s = source.toString();
     		Matcher m = p.matcher(s);
@@ -275,10 +277,19 @@ public class SmallWorld {
 		m.find();
     		return Integer.parseInt(m.group(0));
     	}
-    	public int getName(String s) {
+    	public String getName(String s) {
     		Matcher m = p.matcher(s);
     		m.find();
-    		return Integer.parseInt(m.group(0));
+    		return m.group(0);
+    	}
+    	public getUpdatedFlag(String s) {
+    		Matcher m = p.matcher(s);
+    		m.find();
+    		m.find();
+    		m.find();
+    		m.find();
+    		m.find();
+    		return m.group(0);
     	}
 
     	public void map(Text key, Text values, Context context)
@@ -290,23 +301,27 @@ public class SmallWorld {
     			current = current.substring(0, current.length() - 6);
     			String newVal = current.toString();
     			if (getHasBeenTraversed(current) == 0) {
+    				String theName = getName(current);
+    				if (!getUpdated(current).equals("false") && !changes.get(current))
     				int whatDist = getDistance(key);
     				newVal = "";
-    				newVal += getName(current);
+    				newVal += theName;
     				newVal += " " + (whatDist + 1);
     				newVal += " 1";
     				newVal += " 0";
+    				changes.put(theName, true);
+    				context.write(key, outputValue);
     			}
     			Text outputValue = new Text();
     			outputValue.set(newVal);
+    			if (!getUpdated(current).equals("false") && !changes.get(current)) {
     			context.write(key, outputValue);
+    			}
     			}
     		}
     		}
     }
     public static class BFSReducer extends Reducer<Text, Text, Text, Text> {
-
-	public HashMap<String, Text> nameToUpdated = new HashMap<String, Text>();
 
 	public String getName(Text source) {
 	    String s = source.toString();
