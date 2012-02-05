@@ -69,7 +69,7 @@ public class SmallWorld {
     public static class Vertex {
 	public LongWritable name;
 	public ArrayList<LongWritable> distances;
-	public ArrayList<LongWritable> hasSeen;
+	//public ArrayList<LongWritable> hasSeen;
 	public int numOfSearches;
 	public boolean isSpecial = false;
 	public static Pattern nameParse = Pattern.compile("[\\S]+");
