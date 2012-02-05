@@ -289,6 +289,9 @@ public class SmallWorld {
     		Matcher m = textDelimiter.matcher(values.toString());
     		Boolean search = getToBeTraversed(key) == 1 && getHasBeenTraversed(key) == 0;
     		if (search) {
+    			String whatToChange = key.toString();
+    			whatToChange = whatToChange.trim();
+    			whatToChange = whatToChange.substring(0, whatToChange.length() - 1).concat("1");
     			while (m.find()) {
     				String s = m.group(0);
     				s = s.substring(0, s.length() - 6);
