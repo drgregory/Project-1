@@ -211,7 +211,7 @@ public class SmallWorld {
                 throws IOException, InterruptedException {
             int toBe = Math.random() < 1.0/denom ? 1 : 0;
             int initialDist = toBe == 1 ? 0 : -1;
-	    Text keyT = new Text(key.toString() + " " + initialDist + " " + toBe + " 0");
+	    Text keyT = new Text(key.toString() + " " + "{ " + initialDist + " }" + " " + toBe + " 0");
 	    Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
 	    context.write(keyT, valueT);
 	    if (toBe == 1) {
@@ -245,20 +245,23 @@ public class SmallWorld {
     public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
     	
     	public Pattern p = Pattern.compile("[\\S]+");
-    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ");
-    	public int getDistance(Text source) {
+    	public Pattern distPat = Pattern.compile("{ [[\\S] ]+ }");
+    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ { [[\S] ]+ } [$]end ");
+    	public String getDistances(Text source) {
     		String s = source.toString();
-    		Matcher m = p.matcher(s);
+    		Matcher m = distPat.matcher(s);
     		m.find();
-		m.find();
-    		return Integer.parseInt(m.group(0));
+    		String str = m.group(0);
+    		//str = str.substring(1, s.length() - 1);
+    		//str = str.trim();
+    		return str;
     	}
     	public int getToBeTraversed(Text source) {
     		String s = source.toString();
     		Matcher m = p.matcher(s);
     		m.find();
 		m.find();
-		m.find();
+		//m.find();
     		return Integer.parseInt(m.group(0));
     	}
     	public int getHasBeenTraversed(Text source) {
@@ -294,7 +297,7 @@ public class SmallWorld {
     		if (search) {
     			String whatToChange = key.toString();
     			whatToChange = whatToChange.trim();
-    			whatToChange = whatToChange.substring(0, whatToChange.length() - 1).concat("1");
+    			//whatToChange = whatToChange.substring(0, whatToChange.length() - 1).concat("1");
     			key.set(whatToChange);
     			while (m.find()) {
     				String s = m.group(0);
@@ -335,37 +338,67 @@ public class SmallWorld {
     		return Integer.parseInt(m.group(0));
     	}
     	
-    	public int getDistance(Text source) {
+    	/*public int getDistance(Text source) {
 	    String s = source.toString();
     		Matcher m = finder.matcher(s);
     		m.find();
     		m.find();
     		return Integer.parseInt(m.group(0));
+    	}*/
+    	
+    	public Pattern p = Pattern.compile("[\\S]+");
+    	public Pattern distPat = Pattern.compile("{ [[\\S] ]+ }");
+    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ { [[\S] ]+ } [$]end ");
+    	public String getDistances(Text source) {
+    		String s = source.toString();
+    		Matcher m = distPat.matcher(s);
+    		m.find();
+    		String str = m.group(0);
+    		str = str.substring(1, s.length() - 1);
+    		str = str.trim();
+    		return str;
     	}
     	
-	Pattern p = Pattern.compile("[$]search[\\d]+");
+	Pattern p = Pattern.compile("[$]search { [[\\d] ]+ }");
 	@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
 	    Boolean searchFrom = false;
 	    String concatVals = "";
-	    int distance = getDistance(key);
+	    String dists = getDistances(key);
+	    Matcher dMatch = Pattern.compile("[\\d]+").matcher(dists);
+	    int max = 0;
+	    int howMany = 0;
+	    while (dMatch.find()) {
+	    	int next = Integer.parseInt(dMatch.group(0));
+	    	if (next > max) {
+	    		howMany = 1;
+	    		max = next;
+	    	} else if (next == max) {
+	    		howMany += 1;
+	    	}
+	    }
+	    int whatToAdd = max + 1;
 	    for (Text v : values) {
 	    	String c = v.toString();
 	    	Matcher m = p.matcher(c);
 	    	if (m.matches()) {
 	    		searchFrom = true;
 	    		c = c.substring(7);
-	    		dataFinishedCounter += 1;
-	    		distance = Integer.parseInt(c) + 1;
+	    		//dataFinishedCounter += 1;
+	    		String distances = "";
+	    		for (int i = 0; i < howMany; i += 1) {
+	    			distances += " " + max;
+	    		}
+	    		//distance = Integer.parseInt(c) + 1;
 	    	} else {
 	    		concatVals += c + " $end ";
 	    	}
 	    }
 	    String k = getName(key);
-	    k += " " + distance;
 	    k += searchFrom ? " 1 " : " 0 ";
-	    k += getHasBeenTraversed(key);
+	    k += " " + "{ " + distances + " }";
+	    //k += getHasBeenTraversed(key);
 	    Text finalKey = new Text(k);
 	    Text finalVals = new Text(concatVals);
 	    context.write(finalKey, finalVals);
