@@ -245,8 +245,8 @@ public class SmallWorld {
     public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
     	
     	public Pattern p = Pattern.compile("[\\S]+");
-    	public Pattern distPat = Pattern.compile("{ [[\\S] ]+ }");
-    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ { [[\S] ]+ } [$]end ");
+    	public Pattern distPat = Pattern.compile("[{] [[\\S]+ ]+ [}]");
+    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [{] [[\\S]+ ]+ [}] [$]end ");
     	public String getDistances(Text source) {
     		String s = source.toString();
     		Matcher m = distPat.matcher(s);
@@ -262,6 +262,12 @@ public class SmallWorld {
     		m.find();
 		m.find();
 		//m.find();
+		String res = m.group(0);
+		res = res.trim();
+		while (res.equals("{") || res.equals("}")) {
+		    m.find();
+		    res = m.group(0);
+		}
     		return Integer.parseInt(m.group(0));
     	}
     	public int getHasBeenTraversed(Text source) {
@@ -293,7 +299,7 @@ public class SmallWorld {
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
-    		Boolean search = getToBeTraversed(key) == 1 && getHasBeenTraversed(key) == 0;
+    		Boolean search = getToBeTraversed(key) == 1 /*&& getHasBeenTraversed(key) == 0*/;
     		if (search) {
     			String whatToChange = key.toString();
     			whatToChange = whatToChange.trim();
@@ -303,7 +309,7 @@ public class SmallWorld {
     				String s = m.group(0);
     				s = s.substring(0, s.length() - 6);
     				Text t = new Text(s);
-    				Text specialSearch = new Text(isSpecial + getDistance(key));
+    				Text specialSearch = new Text(isSpecial + getDistances(key));
     				context.write(t, specialSearch);
     				context.write(key, t);
     			}
@@ -346,9 +352,8 @@ public class SmallWorld {
     		return Integer.parseInt(m.group(0));
     	}*/
     	
-    	public Pattern p = Pattern.compile("[\\S]+");
-    	public Pattern distPat = Pattern.compile("{ [[\\S] ]+ }");
-    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ { [[\S] ]+ } [$]end ");
+    	public Pattern distPat = Pattern.compile("[{] [[\\S]+ ]+ [}]");
+    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [{] [[\\S]+ ]+ [}] [$]end ");
     	public String getDistances(Text source) {
     		String s = source.toString();
     		Matcher m = distPat.matcher(s);
@@ -359,14 +364,14 @@ public class SmallWorld {
     		return str;
     	}
     	
-	Pattern p = Pattern.compile("[$]search { [[\\d] ]+ }");
+	Pattern p = Pattern.compile("[$]search [{] [[\\S] ]+ [}]");
 	@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
 	    Boolean searchFrom = false;
 	    String concatVals = "";
 	    String dists = getDistances(key);
-	    Matcher dMatch = Pattern.compile("[\\d]+").matcher(dists);
+	    Matcher dMatch = Pattern.compile("[[-]*[\\d]+]+").matcher(dists);
 	    int max = 0;
 	    int howMany = 0;
 	    while (dMatch.find()) {
@@ -378,7 +383,10 @@ public class SmallWorld {
 	    		howMany += 1;
 	    	}
 	    }
-	    int whatToAdd = max + 1;
+	    String whatToAdd = "";
+	    for (int i = 0; i < howMany; i += 1) {
+		whatToAdd += " " + (max + 1);
+	    }
 	    for (Text v : values) {
 	    	String c = v.toString();
 	    	Matcher m = p.matcher(c);
@@ -386,18 +394,16 @@ public class SmallWorld {
 	    		searchFrom = true;
 	    		c = c.substring(7);
 	    		//dataFinishedCounter += 1;
-	    		String distances = "";
-	    		for (int i = 0; i < howMany; i += 1) {
-	    			distances += " " + max;
-	    		}
-	    		//distance = Integer.parseInt(c) + 1;
 	    	} else {
-	    		concatVals += c + " $end ";
+		    c = c.substring(0, c.length() - 3);
+		    c += whatToAdd;
+		    c += " }";
+	    	    concatVals += c + " $end ";
 	    	}
 	    }
 	    String k = getName(key);
 	    k += searchFrom ? " 1 " : " 0 ";
-	    k += " " + "{ " + distances + " }";
+	    k += " " + "{ " + dists + " }";
 	    //k += getHasBeenTraversed(key);
 	    Text finalKey = new Text(k);
 	    Text finalVals = new Text(concatVals);
@@ -407,24 +413,30 @@ public class SmallWorld {
     public static class CleanupMapper extends Mapper<Text, Text, LongWritable, LongWritable> {
     	
     	public static final LongWritable ONE = new LongWritable(1L);
-    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ");
-    	public Pattern p = Pattern.compile("[\\S]+");
+    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [{] [[\\S]+ ]+ [}] [$]end ");
+    	public Pattern p = Pattern.compile("[{] [[\\S]+ ]+ [}]");
+	public Pattern d = Pattern.compile("[[-]*[\\d]+]+");
 
-	public long getDistance(Text source) {
+	public String getDistances(Text source) {
     		String s = source.toString();
     		Matcher m = p.matcher(s);
     		m.find();
-		m.find();
-    		return Long.parseLong(m.group(0));
+		String str = m.group(0);
+		str = str.substring(1, str.length() - 1);
+		str = str.trim();
+    		return str;
     	}
     	
     	public void map(Text key, Text values, Context context)
     		throws IOException, InterruptedException {
     		Matcher m = textDelimiter.matcher(values.toString());
     		while (m.find()) {
-    			long thisDist = getDistance(key);
-    			LongWritable distKey = new LongWritable(thisDist);
-    			context.write(distKey, ONE);
+    			String theseDists = getDistances(key);
+			Matcher dMatch = d.matcher(theseDists);
+			while (dMatch.find()) {
+			    LongWritable distKey = new LongWritable(Long.parseLong(dMatch.group(0)));
+			    context.write(distKey, ONE);
+			}
     		}
     		}
     }
@@ -519,11 +531,11 @@ public class SmallWorld {
             FileInputFormat.addInputPath(job, new Path("bfs-" + i + "-out"));
             FileOutputFormat.setOutputPath(job, new Path("bfs-"+ (i+1) +"-out"));
 
-	    i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
+	    //i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
 
             job.waitForCompletion(true);
             i++;
-            dataFinishedCounter = 0;
+            //dataFinishedCounter = 0;
         }
 
         // Mapreduce config for histogram computation
