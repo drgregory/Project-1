@@ -109,7 +109,25 @@ public class SmallWorld {
 	    names = in.readUTF();
 	    searchesInto = in.readBoolean();
 	}
-
+	
+	public void setDistances(String d) {
+		this.distances = d;
+	}
+	public void setNames(String n) {
+		this.names = n;
+	}
+	public String getDistances() {
+		return this.distances;
+	}
+	public String getNames() {
+		return this.names;
+	}
+	public void setSearchesInto(boolean b) {
+		this.searchesInto = b;
+	}
+	public boolean getSearchesInto() {
+		return this.searchesInto;
+	}
 	public void addDistance(long d) {
 	    distances += " " + d + " ";
 	}
@@ -244,9 +262,9 @@ public class SmallWorld {
 			    }
 			} else {
 				Node m = new Node(n.name);
-				m.distances = n.distances;
-				m.names = n.names;
-				m.searchesInto = n.searchesInto;
+				m.setDistances(n.getDistances());
+				m.setNames(n.getNames());
+				m.setSearchesInto(n.getSearchesInto);
 				savedNodes.add(m);
 			}
 	    }
