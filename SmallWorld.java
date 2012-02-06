@@ -51,7 +51,7 @@ public class SmallWorld {
     // Example enumerated type, used by EValue and Counter example
     public static enum ValueUse {EDGE, CHANGE};
         
-    public static class Node implements {
+    public static class Node {
 	public long name;
 	public String distances;
 	public String names;
@@ -231,12 +231,11 @@ public class SmallWorld {
 	    	Node k = new Node(key);
 	    if (Math.random() < 1.0/denom) {
 		k.addDistance(0L);
-		k.addName(key.name);
+		k.addName(k.name);
 		k.searchesInto = true;
 	    }
 	    for (Text v : values) {
-	    	Node currentVal = new Node(v);
-		context.write(k, currentVal);
+		context.write(k.toText(), v);
 	    }
 	}
     }
