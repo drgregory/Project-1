@@ -134,6 +134,13 @@ public class SmallWorld {
 	public void addName(long n) {
 	    names += " " + n + " ";
 	}
+	public long getName() {
+		return this.name;
+	}
+	public void setName(long l) {
+		this.name = l;
+	}
+
     }
 
 
