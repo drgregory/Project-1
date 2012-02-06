@@ -114,7 +114,7 @@ public class SmallWorld {
 	    distances += " " + d + " ";
 	}
 	public void addName(long n) {
-	    names += " " n + " ";
+	    names += " " + n + " ";
 	}
     }
 
@@ -201,11 +201,14 @@ public class SmallWorld {
 	    if (key.searchesInto) {
 		key.searchesInto = false;
 		Node searchNode = new Node(-2);
-		Scanner names = new Scanner(key.names);
-		Scanner distances = new Scanner(key.distances);
-		while (names.hasNextLong()) {
-		    long n = names.nextLong();
-		    long d = distances.nextLong();
+		//Scanner names = new Scanner(key.names);
+		//Scanner distances = new Scanner(key.distances);
+		Matcher digitsNames = Pattern.compile("[\\d]+").matcher(key.names);
+		Matcher digitsDistances = Pattern.compile("[\\d]+").matcher(key.distances);
+		while (digitsNames.find()) {
+		    digitsDistances.find();
+		    long n = Long.parseLong(digitsNames.group(0));
+		    long d = Long.parseLong(digitsDistances.group(0));
 		    searchNode.addDistance(d);
 		    searchNode.addName(n);
 		}
@@ -223,19 +226,22 @@ public class SmallWorld {
 	    ArrayList<Node> savedNodes = new ArrayList<Node>();
 	    for (Node n : values) {
 			if (n.name == -2) {
-				Scanner names = new Scanner(n.names);
-				Scanner distances = new Scanner(n.distances);
-				while (names.hasNextLong()) {
-					long nam = names.nextLong();
-					String namS = nam + "";
-					long dis = distances.nextLong() + 1;
-					if (!key.names.contains(namS)) {
-						key.addDistance(dis);
-						key.addName(nam);
-						key.searchesInto = true;
-						context.getCounter(ValueUse.CHANGE).increment(1);
-					}
+			    //Scanner names = new Scanner(n.names);
+			    //	Scanner distances = new Scanner(n.distances);
+			    Matcher digitsNames = Pattern.compile("[\\d]+").matcher(n.names);
+			    Matcher digitsDistances = Pattern.compile("[\\d]+").matcher(n.distances);
+			    while (digitsNames.find()) {
+				digitsDistances.find();
+				long nam = Long.parseLong(digitsNames.group(0));
+				String namS = nam + "";
+				long dis = Long.parseLong(digitsDistances.group(0)) + 1;
+				if (!key.names.contains(namS)) {
+				    key.addDistance(dis);
+				    key.addName(nam);
+				    key.searchesInto = true;
+				    context.getCounter(ValueUse.CHANGE).increment(1);
 				}
+			    }
 			} else {
 				savedNodes.add(n);
 			}
@@ -252,9 +258,10 @@ public class SmallWorld {
 		
 	public void map(Node key, Node value, Context context)
 	    throws IOException, InterruptedException {
-	    Scanner s = new Scanner(key.distances);
-	    while(s.hasNextLong()) {
-		long l = s.nextLong();
+	    Matcher digitsDistances = Pattern.compile("[\\d]+").matcher(key.distances);
+	    //Scanner s = new Scanner(key.distances);
+	    while(digitsDistances.find()) {
+		long l = Long.parseLong(digitsDistances.group(0));
 		context.write(new LongWritable(l), ONE);
 	    }
 	}
@@ -351,14 +358,15 @@ public class SmallWorld {
             FileOutputFormat.setOutputPath(job, new Path("bfs-"+ (i+1) +"-out"));
 
 	    //i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
-			currentChanges = job.getCounters().findCounter(ValueUse.CHANGE).getValue();
             job.waitForCompletion(true);
-			if (currentChanges == 0) {
-				i = MAX_ITERATIONS - 1;
-			} else {
-				i++;
-			}	
-			currentChanges = 0;
+	    currentChanges = job.getCounters().findCounter(ValueUse.CHANGE).getValue();
+	    /*if (currentChanges == 0) {
+		//i = MAX_ITERATIONS;
+		break;
+		} else {*/
+		i++;
+		// }	
+	    currentChanges = 0;
         }
 
         // Mapreduce config for histogram computation
