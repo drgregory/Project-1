@@ -243,7 +243,11 @@ public class SmallWorld {
 				}
 			    }
 			} else {
-				savedNodes.add(n);
+				Node m = new Node(n.name);
+				m.distances = n.distances;
+				m.names = n.names;
+				m.searchesInto = n.searchesInto;
+				savedNodes.add(m);
 			}
 	    }
 	    for (Node x : savedNodes) {
