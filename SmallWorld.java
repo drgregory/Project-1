@@ -244,74 +244,48 @@ public class SmallWorld {
 	
 		
 	public void map(Text k, Text value, Context context)
-	    throws IOException, InterruptedException {
-	    System.out.println("KEY : " + k.toString() + " " + "VALUE : " + value.toString());
-	    Node key = new Node(k);
-	    if (key.searchesInto) {
-		key.searchesInto = false;
-		Node searchNode = new Node(-2);
-		//Scanner names = new Scanner(key.names);
-		//Scanner distances = new Scanner(key.distances);
-		Matcher digitsNames = Pattern.compile("[\\d]+").matcher(key.names);
-		Matcher digitsDistances = Pattern.compile("[\\d]+").matcher(key.distances);
-		while (digitsNames.find()) {
-		    digitsDistances.find();
-		    long n = Long.parseLong(digitsNames.group(0));
-		    long d = Long.parseLong(digitsDistances.group(0));
-		    searchNode.addDistance(d);
-		    searchNode.addName(n);
+			throws IOException, InterruptedException {
+		Node key = new Node(k);
+		Node v = new Node(value);
+		if (key.searchesInto) {
+			key.searchesInto = false;
+			context.write(value, searchNode.toText());
+		} else {
+			context.write(value, k);
 		}
-		context.write(value, searchNode.toText());
-	    }
-	    context.write(key.toText(), value);
 	}
     }
-
+    
     public static class BFSReduce2 extends Reducer<Text, Text, Text, Text> {
 	
-		
+	
 	public void reduce(Text k, Iterable<Text> values, Context context)
-	    throws IOException, InterruptedException {
-	    	Node key = new Node(k);
-		boolean bang = false;
-	    ArrayList<Node> savedNodes = new ArrayList<Node>();
-	    for (Text t : values) {
-	    	Node n = new Node(t);
-			if (n.name == -2) {
-			    //Scanner names = new Scanner(n.names);
-			    //	Scanner distances = new Scanner(n.distances);
-			    Matcher digitsNames = Pattern.compile("[\\d]+").matcher(n.names);
-			    Matcher digitsDistances = Pattern.compile("[\\d]+").matcher(n.distances);
-			    while (digitsNames.find()) {
+			throws IOException, InterruptedException {
+		Node key = new Node(k);
+		ArrayList<Text> savedV = new ArrayList<Text>();
+		for (Text v : values) {
+			Node value = new Node(v);
+			Matcher digitsNames = Pattern.compile("[\\d]+").matcher(value.names);
+			Matcher digitsDistances = Pattern.compile("[\\d]+").matcher(value.distances);
+			while (digitsNames.find()) {
 				digitsDistances.find();
-				long nam = Long.parseLong(digitsNames.group(0));
-				String namS = nam + "";
-				long dis = Long.parseLong(digitsDistances.group(0)) + 1;
-				if (!key.names.contains(namS)) {
-				    key.addDistance(dis);
-				    key.addName(nam);
-				    key.searchesInto = true;
-				    bang = true;
-				    System.out.println("BANGBANGBANG");
-				    context.getCounter(ValueUse.CHANGE).increment(1);
-				    }
-			    }
-			} else {
-				Node m = new Node(n.getName());
-				m.setDistances(n.getDistances());
-				m.setNames(n.getNames());
-				m.setSearchesInto(n.getSearchesInto());
-				savedNodes.add(m);
+				String nam = digitsNames.group(0);
+				long n = Long.parseLong(nam);
+				long d = Long.parseLong(digitsDistances.group(0)) + 1;
+				if (!key.names.contains(nam)) {
+					key.addName(n);
+					key.addDistance(dis);
+					key.searchesInto = true;
+				}
 			}
-	    }
-	    for (int i = 0 ; i < savedNodes.size(); i += 1) {
-		Node x = savedNodes.get(i);
-		key.setSearchesInto(bang);
-		System.out.println("The key should be searched flag is : " + key.toText());
-		context.write(key.toText(), x.toText());
-	    }
-	}
-    }	
+			savedV.add(v);
+		}
+		k = key.toText();
+		for (Text v : savedV) {
+			context.write(v, k);
+		}
+	}	
+    }
     
     public static class CleanupMap extends Mapper<Text, Text, LongWritable, LongWritable> {
 		
