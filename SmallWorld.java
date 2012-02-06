@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -220,19 +221,44 @@ public class SmallWorld {
         }
     }
     
-    public static class Node implements Writable {
+    public static class Node implements WritableComparable {
 		public long name;
 		public String distances;
 		public String names;
 		public boolean searchesInto;
-		
+
+	public Node() {
+	    name = -1;
+	    distances = "";
+	    names = "";
+	    searchesInto = false;
+	}
 		public Node(long n) {
 			name = n;
 			distances = "";
 			names = "";
 			searchesInto = false;
 		}
-			
+		
+	public int compareTo(Node other) {
+	    long otherName = other.name;
+	    if (otherName == this.name) {
+		return 0;
+	    } else if (otherName > this.name) {
+		return -1;
+	    } else {
+		return 1;
+	    }
+	    /*long thisValue = this.name;
+	    long otherValue = ((Node)other).name;
+	    return other.compareTo(this.name);*/
+	}
+	public int compareTo(Object other) {
+	    return -1;
+	}
+	public boolean equals(Object o) {
+	    return false;
+	}
 
 		public void write(DataOutput out) throws IOException {
 			out.writeLong(name);
@@ -249,10 +275,10 @@ public class SmallWorld {
 		}
 
 		public void addDistance(long d) {
-			distances += d.toString() + " ";
+			distances += d + " ";
 		}
 		public void addName(long n) {
-			names += n.toString() + " ";
+			names += n + " ";
 	        }
            }
 
@@ -298,52 +324,9 @@ public class SmallWorld {
 		//}
         }
     }
-    public static class LoaderReducer2 extends Reducer<LongWritable, LongWritable, Text, Text> {
-	public long denom;
-	@Override	
-        public void setup(Context context) {
-            try {
-                Configuration conf = context.getConfiguration();
-                Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
-                BufferedReader reader = new BufferedReader(
-                                        new FileReader(cachedDenomPath.toString()));
-                String denomStr = reader.readLine();
-                reader.close();
-                denom = Long.decode(denomStr);
-            } catch (IOException ioe) {
-                System.err.println("IOException reading denom from distributed cache");
-                System.err.println(ioe.toString());
-            }
-        }
-
-	@Override
-        public void reduce(LongWritable key, Iterable<LongWritable> values,
-			   Context context) throws IOException, InterruptedException {
-	    int keyNumOfSearches = Math.random() < 1.0/denom ? 1 : 0;
-	    Vertex kVert = new Vertex(key, keyNumOfSearches);
-	    //Text concatText = new Text();
-	    //String initialString = "";
-	    for (LongWritable value : values) {
-		Vertex valVert = new Vertex(value, 0);
-		context.write(kVert.makeIntoText(), valVert.makeIntoText());
-	    	//initialString += value.toString() + " $end ";
-	    }
-	    //concatText.set(initialString);
-	    //Object[] s = mySuccessors.toArray();
-	    //int size = mySuccessors.size();
-	    //LongWritable[] successors = new LongWritable[size];
-	    //for (int i = 0; i < size; i += 1) {
-	    //	successors[i] = (LongWritable) s[i];
-	    //}
-	    //ArrayWritable writableSuccessors = new ArrayWritable(org.apache.hadoop.io.LongWritable, successors);
-	    //Text theName = new Text();
-	    //theName.set(key.toString());
-	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
-	    //context.write(key, concatText);
-	}
-    }
     
-    public static class LoaderMap extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable> {
+    
+    public static class LoaderMap extends Mapper<LongWritable, LongWritable, Node, Node> {
         public long denom;
 
         /* Setup is called automatically once per map task. This will
@@ -373,12 +356,36 @@ public class SmallWorld {
 			Node keyNode = new Node(key.get());
 			Node valueNode = new Node(value.get());
             // Example of using a counter (counter tagged by EDGE)
+			/*we may need this later
             context.getCounter(ValueUse.EDGES).increment(1);
+			*/
 			context.write(keyNode, valueNode);
         }
     }
 	
 	public static class LoaderReduce extends Reducer<Node, Node, Node, Node> {
+	    public long denom;
+
+        /* Setup is called automatically once per map task. This will
+           read denom in from the DistributedCache, and it will be
+           available to each call of map later on via the instance
+           variable.                                                  */
+        @Override
+        public void setup(Context context) {
+            try {
+                Configuration conf = context.getConfiguration();
+                Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
+                BufferedReader reader = new BufferedReader(
+                                        new FileReader(cachedDenomPath.toString()));
+                String denomStr = reader.readLine();
+                reader.close();
+                denom = Long.decode(denomStr);
+            } catch (IOException ioe) {
+                System.err.println("IOException reading denom from distributed cache");
+                System.err.println(ioe.toString());
+            }
+        }
+
 		public void reduce(Node key, Iterable<Node> values, Context context)
 				throws IOException, InterruptedException {	
 			if (Math.random() < 1.0/denom) {
@@ -398,11 +405,11 @@ public class SmallWorld {
 		
 		public void map(Node key, Node value, Context context)
 				throws IOException, InterruptedException {
-			if (k.searchesInto) {
-				k.searchesInto = false;
+			if (key.searchesInto) {
+				key.searchesInto = false;
 				searchNode = new Node(-2);
-				Scanner names = new Scanner(k.names);
-				Scanner distances = new Scanner(k.distances);
+				Scanner names = new Scanner(key.names);
+				Scanner distances = new Scanner(key.distances);
 				while (names.hasNextLong()) {
 					long n = names.nextLong();
 					long d = distances.nextLong();
@@ -428,11 +435,11 @@ public class SmallWorld {
 					Scanner distances = new Scanner(n.distances);
 					while (names.hasNextLong()) {
 						long nam = names.nextLong();
-						String namS = nam.toString();
+						String namS = nam + "";
 						long dis = distances.nextLong();
 						if (!key.names.contains(namS)) {
-							key.distances.add(dis);
-							key.names.add(nam);
+							key.addDistance(dis);
+							key.addName(nam);
 							key.searchesInto = true;
 						}
 					}
@@ -762,13 +769,13 @@ public class SmallWorld {
         Job job = new Job(conf, "load graph");
         job.setJarByClass(SmallWorld.class);
 
-        job.setMapOutputKeyClass(Node.class);
-        job.setMapOutputValueClass(Node.class);
-        job.setOutputKeyClass(Node.class);
-        job.setOutputValueClass(Node.class);
+        job.setMapOutputKeyClass(SmallWorld.Node.class);
+        job.setMapOutputValueClass(SmallWorld.Node.class);
+        job.setOutputKeyClass(SmallWorld.Node.class);
+        job.setOutputValueClass(SmallWorld.Node.class);
 
         job.setMapperClass(LoaderMap.class);
-        job.setReducerClass(LoaderReducer2.class);
+        job.setReducerClass(LoaderReduce.class);
 
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(SequenceFileOutputFormat.class);
@@ -795,13 +802,13 @@ public class SmallWorld {
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
-            job.setMapOutputKeyClass(Node.class);
-            job.setMapOutputValueClass(Node.class);
-            job.setOutputKeyClass(Node.class);
-            job.setOutputValueClass(Node.class);
+            job.setMapOutputKeyClass(SmallWorld.Node.class);
+            job.setMapOutputValueClass(SmallWorld.Node.class);
+            job.setOutputKeyClass(SmallWorld.Node.class);
+            job.setOutputValueClass(SmallWorld.Node.class);
 
             job.setMapperClass(BFSMapper2.class);
-            job.setReducerClass(BFSReducer2.class);
+            job.setReducerClass(BFSReduce2.class);
 
             job.setInputFormatClass(SequenceFileInputFormat.class);
             job.setOutputFormatClass(SequenceFileOutputFormat.class);
@@ -829,7 +836,7 @@ public class SmallWorld {
 
         job.setMapperClass(CleanupMap.class);
         job.setCombinerClass(CleanupReduce.class);
-        job.setReducerClass(CleanupReduc.class);
+        job.setReducerClass(CleanupReduce.class);
 
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
