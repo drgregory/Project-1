@@ -43,7 +43,7 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 public class SmallWorld {
     // Maximum dept for any breadth-first search
-    public static final int MAX_ITERATIONS = 20;
+    public static final int MAX_ITERATIONS = 5;
 
     // Skeleton code uses this to share denom cmd-line arg across cluster
     public static final String DENOM_PATH = "denom.txt";
@@ -245,7 +245,8 @@ public class SmallWorld {
 		
 	public void map(Text k, Text value, Context context)
 	    throws IOException, InterruptedException {
-	    	Node key = new Node(k);
+	    System.out.println("KEY : " + k.toString() + " " + "VALUE : " + value.toString());
+	    Node key = new Node(k);
 	    if (key.searchesInto) {
 		key.searchesInto = false;
 		Node searchNode = new Node(-2);
@@ -272,6 +273,7 @@ public class SmallWorld {
 	public void reduce(Text k, Iterable<Text> values, Context context)
 	    throws IOException, InterruptedException {
 	    	Node key = new Node(k);
+		boolean bang = false;
 	    ArrayList<Node> savedNodes = new ArrayList<Node>();
 	    for (Text t : values) {
 	    	Node n = new Node(t);
@@ -289,8 +291,10 @@ public class SmallWorld {
 				    key.addDistance(dis);
 				    key.addName(nam);
 				    key.searchesInto = true;
+				    bang = true;
+				    System.out.println("BANGBANGBANG");
 				    context.getCounter(ValueUse.CHANGE).increment(1);
-				}
+				    }
 			    }
 			} else {
 				Node m = new Node(n.getName());
@@ -300,8 +304,11 @@ public class SmallWorld {
 				savedNodes.add(m);
 			}
 	    }
-	    for (Node x : savedNodes) {
-			context.write(key.toText(), x.toText());
+	    for (int i = 0 ; i < savedNodes.size(); i += 1) {
+		Node x = savedNodes.get(i);
+		key.setSearchesInto(bang);
+		System.out.println("The key should be searched flag is : " + key.toText());
+		context.write(key.toText(), x.toText());
 	    }
 	}
     }	
