@@ -48,137 +48,8 @@ public class SmallWorld {
     public static final String DENOM_PATH = "denom.txt";
 
     // Example enumerated type, used by EValue and Counter example
-    public static enum ValueUse {EDGE};
+    public static enum ValueUse {EDGE,VERTEX};
     
-    public static int dataFinishedCounter = 0;
-    
-    public static class NodeValue implements Writable {
-	public Text name;
-	public LongWritable dist;
-	public ArrayList<LongWritable> successors;
-	public boolean hasTraversed = false;
-
-	public NodeValue(Text n, long d,
-			 ArrayList<LongWritable> s) {
-	    name = n;
-	    dist = new LongWritable(d);
-	    successors = s;
-	}
-
-	public void write(DataOutput out) throws IOException {
-            name.write(out);
-	    dist.write(out);
-	}
-
-	public void readFields(DataInput in) throws IOException {
-	    name.set(in.readUTF());
-	    dist.set(in.readLong());
-        }
-
-        public void setDist(long toWhat) {
-	    dist.set(dist.get() + toWhat);
-	}
-
-	public void setHasTraversed(boolean toWhat) {
-	    hasTraversed = toWhat;
-	}
-
-        public String toString() {
-            return name.toString() + ": " + dist.get();
-        }
-    }	
-	
-    // Example writable type
-    public static class EValue implements Writable {
-        public ValueUse use;
-        public long value;
-
-        public EValue(ValueUse use, long value) {
-            this.use = use;
-            this.value = value;
-        }
-
-        public EValue() {
-            this(ValueUse.EDGE, 0);
-        }
-
-        // Serializes object - needed for Writable
-        public void write(DataOutput out) throws IOException {
-            out.writeUTF(use.name());
-            out.writeLong(value);
-        }
-
-        // Deserializes object - needed for Writable
-        public void readFields(DataInput in) throws IOException {
-            use = ValueUse.valueOf(in.readUTF());
-            value = in.readLong();
-        }
-
-        public void set(ValueUse use, long value) {
-            this.use = use;
-            this.value = value;
-        }
-
-        public String toString() {
-            return use.name() + ": " + value;
-        }
-    }
-
-
-    /* This example mapper loads in all edges but only propagates a subset.
-       You will need to modify this to propagate all edges, but it is 
-       included to demonstate how to read & use the denom argument.         */
-    public static class LoaderMap extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable> {
-        public long denom;
-
-        /* Setup is called automatically once per map task. This will
-           read denom in from the DistributedCache, and it will be
-           available to each call of map later on via the instance
-           variable.                                                  */
-        @Override
-        public void setup(Context context) {
-            try {
-                Configuration conf = context.getConfiguration();
-                Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
-                BufferedReader reader = new BufferedReader(
-                                        new FileReader(cachedDenomPath.toString()));
-                String denomStr = reader.readLine();
-                reader.close();
-                denom = Long.decode(denomStr);
-            } catch (IOException ioe) {
-                System.err.println("IOException reading denom from distributed cache");
-                System.err.println(ioe.toString());
-            }
-        }
-
-        /* Will need to modify to not lose any edges. */
-        @Override
-        public void map(LongWritable key, LongWritable value, Context context)
-                throws IOException, InterruptedException {
-            // Send edge forward only if part of random subset
-            if (Math.random() < 1.0/denom) {
-                context.write(key, value);
-            }
-            // Example of using a counter (counter tagged by EDGE)
-            context.getCounter(ValueUse.EDGE).increment(1);
-        }
-    }
-
-    /* Insert your mapreduces here
-       (still feel free to edit elsewhere) */
-    /* The second mapper . . . */
-    /*public static class ProcesserMap extends Mapper<NodeValue, ArrayWritable, NodeValue, LongWritable> {
-
-        public void map(LongWritable key, ArrayWritable value, Context context)
-                throws IOException, InterruptedException {
-	    if (key.dist() >= 0  && !key.hasTraversed) {
-		key.setHasTraversed(true);
-		for (LongWritable v : value) {
-		    context.write(key, v);
-		}
-	    }
-        }
-	}*/
 /* This example mapper loads in all edges but only propagates a subset.
        You will need to modify this to propagate all edges, but it is 
        included to demonstate how to read & use the denom argument.         */
@@ -209,37 +80,56 @@ public class SmallWorld {
         @Override
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
-            int toBe = Math.random() < 1.0/denom ? 1 : 0;
-            int initialDist = toBe == 1 ? 0 : -1;
-	    Text keyT = new Text(key.toString() + " " + initialDist + " " + toBe + " 0");
+	    Text keyT = new Text(key.toString() + " " + "chooseDist" + " " + "chooseSearch" + " 0");
 	    Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
 	    context.write(keyT, valueT);
-	    if (toBe == 1) {
-            	context.getCounter(ValueUse.EDGE).increment(1);
-	    }
+	    context.getCounter(ValueUse.EDGE).increment(1);
         }
     }
     public static class LoaderReducer extends Reducer<Text, Text, Text, Text> {
+    	public long denom;
+
+        /* Setup is called automatically once per map task. This will
+           read denom in from the DistributedCache, and it will be
+           available to each call of map later on via the instance
+           variable.                                                  */
+        @Override
+        public void setup(Context context) {
+            try {
+                Configuration conf = context.getConfiguration();
+                Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
+                BufferedReader reader = new BufferedReader(
+                                        new FileReader(cachedDenomPath.toString()));
+                String denomStr = reader.readLine();
+                reader.close();
+                denom = Long.decode(denomStr);
+            } catch (IOException ioe) {
+                System.err.println("IOException reading denom from distributed cache");
+                System.err.println(ioe.toString());
+            }
+        }
 	@Override
         public void reduce(Text key, Iterable<Text> values,
 			   Context context) throws IOException, InterruptedException {
+	    int toBe = Math.random() < 1.0/denom ? 1 : 0;
+            int initialDist = toBe == 1 ? 0 : -1;
+            String str = key.toString();
+            if (toBe != 0) {
+            	str = str.replace("chooseDist", "0");
+            	str = str.replace("chooseSearch", "1");
+            } else {
+            	str = str.replace("chooseDist", "-1");
+            	str = str.replace("chooseSearch", "0");
+            }
+            key.set(str);
 	    Text concatText = new Text();
 	    String initialString = "";
 	    for (Text value : values) {
 	    	initialString += value.toString() + " $end ";
 	    }
 	    concatText.set(initialString);
-	    //Object[] s = mySuccessors.toArray();
-	    //int size = mySuccessors.size();
-	    //LongWritable[] successors = new LongWritable[size];
-	    //for (int i = 0; i < size; i += 1) {
-	    //	successors[i] = (LongWritable) s[i];
-	    //}
-	    //ArrayWritable writableSuccessors = new ArrayWritable(org.apache.hadoop.io.LongWritable, successors);
-	    //Text theName = new Text();
-	    //theName.set(key.toString());
-	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
 	    context.write(key, concatText);
+	    context.getCounter(ValueUse.VERTEX).increment(1);
 	}
     }
     public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
@@ -463,11 +353,14 @@ public class SmallWorld {
         System.out.println("Read in " + 
                    job.getCounters().findCounter(ValueUse.EDGE).getValue() + 
                            " edges");
+                           
+        int iteration_adjusted_for_data_size = 	Math.max(100 * (job.getCounters().findCounter(ValueUse.VERTEX).getValue() /
+        					job.getCounters().findCounter(ValueUse.EDGE).getValue()), 7);			
 
         // Repeats your BFS mapreduce
         int i=0;
         // Will need to change terminating conditions to respond to data
-        while (i<MAX_ITERATIONS) {
+        while (i<MAX_ITERATIONS && i < iteration_adjusted_for_data_size) {
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
@@ -486,11 +379,9 @@ public class SmallWorld {
             FileInputFormat.addInputPath(job, new Path("bfs-" + i + "-out"));
             FileOutputFormat.setOutputPath(job, new Path("bfs-"+ (i+1) +"-out"));
 
-	    //i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
 
             job.waitForCompletion(true);
             i++;
-            dataFinishedCounter = 0;
         }
 
         // Mapreduce config for histogram computation
