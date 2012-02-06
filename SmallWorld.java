@@ -268,7 +268,7 @@ public class SmallWorld {
 				}
 			    }
 			} else {
-				Node m = new Node(n.name);
+				Node m = new Node(n.getName());
 				m.setDistances(n.getDistances());
 				m.setNames(n.getNames());
 				m.setSearchesInto(n.getSearchesInto());
