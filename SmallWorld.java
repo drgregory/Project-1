@@ -51,17 +51,38 @@ public class SmallWorld {
     // Example enumerated type, used by EValue and Counter example
     public static enum ValueUse {EDGE, CHANGE};
         
-    public static class Node implements WritableComparable {
+    public static class Node implements {
 	public long name;
 	public String distances;
 	public String names;
 	public boolean searchesInto;
 
-	public Node() {
-	    name = -1;
-	    distances = "";
-	    names = "";
-	    searchesInto = false;
+	public Text toText() {
+		String s = "";
+		s += this.name + " ";
+		s += this.searchesInto + " ";
+		s += this.names + " a ";
+		s += this.distances;
+		Text result = new Text(s);
+		return result;
+	}
+	
+	public Node(Text t) {
+		String str = t.toString();
+		Scanner sc = new Scanner(str);
+		this.name = sc.nextLong();
+		this.searchesInto = sc.nextBoolean();
+		String n = "";
+		while (sc.hasNextLong()) {
+			n += " " + sc.nextLong();
+		}
+		this.names = n;
+		sc.next();
+		String d = "";
+		while (sc.hasNextLong()) {
+			d += " " + sc.nextLong();
+		}
+		this.distances = d;
 	}
 	public Node(long n) {
 	    name = n;
@@ -145,7 +166,7 @@ public class SmallWorld {
 
 
 
-    public static class LoaderMap extends Mapper<LongWritable, LongWritable, Node, Node> {
+    public static class LoaderMap extends Mapper<LongWritable, LongWritable, Text, Text> {
         public long denom;
 
         /* Setup is called automatically once per map task. This will
@@ -178,11 +199,11 @@ public class SmallWorld {
 	    /*we may need this later
 	      context.getCounter(ValueUse.EDGES).increment(1);
 	    */
-	    context.write(keyNode, valueNode);
+	    context.write(keyNode.toText(), valueNode.toText());
         }
     }
 	
-    public static class LoaderReduce extends Reducer<Node, Node, Node, Node> {
+    public static class LoaderReduce extends Reducer<Text, Text, Text, Text> {
 	public long denom;
 
         /* Setup is called automatically once per map task. This will
@@ -205,24 +226,27 @@ public class SmallWorld {
             }
         }
 
-	public void reduce(Node key, Iterable<Node> values, Context context)
+	public void reduce(Text key, Iterable<Text> values, Context context)
 	    throws IOException, InterruptedException {	
+	    	Node k = new Node(key);
 	    if (Math.random() < 1.0/denom) {
-		key.addDistance(0L);
-		key.addName(key.name);
-		key.searchesInto = true;
+		k.addDistance(0L);
+		k.addName(key.name);
+		k.searchesInto = true;
 	    }
-	    for (Node v : values) {
-		context.write(key, v);
+	    for (Text v : values) {
+	    	Node currentVal = new Node(v);
+		context.write(k, currentVal);
 	    }
 	}
     }
 	
-    public static class BFSMapper2 extends Mapper<Node, Node, Node, Node> {
+    public static class BFSMapper2 extends Mapper<Text, Text, Text, Text> {
 	
 		
-	public void map(Node key, Node value, Context context)
+	public void map(Text k, Text value, Context context)
 	    throws IOException, InterruptedException {
+	    	Node key = new Node(k);
 	    if (key.searchesInto) {
 		key.searchesInto = false;
 		Node searchNode = new Node(-2);
@@ -237,19 +261,21 @@ public class SmallWorld {
 		    searchNode.addDistance(d);
 		    searchNode.addName(n);
 		}
-		context.write(value, searchNode);
+		context.write(value, searchNode.toText());
 	    }
-	    context.write(key, value);
+	    context.write(key.toText(), value);
 	}
     }
 
-    public static class BFSReduce2 extends Reducer<Node, Node, Node, Node> {
+    public static class BFSReduce2 extends Reducer<Text, Text, Text, Text> {
 	
 		
-	public void reduce(Node key, Iterable<Node> values, Context context)
+	public void reduce(Text k, Iterable<Text> values, Context context)
 	    throws IOException, InterruptedException {
+	    	Node key = new Node(k);
 	    ArrayList<Node> savedNodes = new ArrayList<Node>();
-	    for (Node n : values) {
+	    for (Text t : values) {
+	    	Node n = new Node(t);
 			if (n.name == -2) {
 			    //Scanner names = new Scanner(n.names);
 			    //	Scanner distances = new Scanner(n.distances);
@@ -276,17 +302,18 @@ public class SmallWorld {
 			}
 	    }
 	    for (Node x : savedNodes) {
-			context.write(key, x);
+			context.write(key.toText(), x.toText());
 	    }
 	}
     }	
     
-    public static class CleanupMap extends Mapper<Node, Node, LongWritable, LongWritable> {
+    public static class CleanupMap extends Mapper<Text, Text, LongWritable, LongWritable> {
 		
 	public static LongWritable ONE = new LongWritable(1L);
 		
-	public void map(Node key, Node value, Context context)
+	public void map(Text k, Text value, Context context)
 	    throws IOException, InterruptedException {
+	    	Node key = new Node(k);
 	    Matcher digitsDistances = Pattern.compile("[\\d]+").matcher(key.distances);
 	    //Scanner s = new Scanner(key.distances);
 	    while(digitsDistances.find()) {
@@ -339,10 +366,10 @@ public class SmallWorld {
         Job job = new Job(conf, "load graph");
         job.setJarByClass(SmallWorld.class);
 
-        job.setMapOutputKeyClass(SmallWorld.Node.class);
-        job.setMapOutputValueClass(SmallWorld.Node.class);
-        job.setOutputKeyClass(SmallWorld.Node.class);
-        job.setOutputValueClass(SmallWorld.Node.class);
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(Text.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(Text.class);
 
         job.setMapperClass(LoaderMap.class);
         job.setReducerClass(LoaderReduce.class);
@@ -371,10 +398,10 @@ public class SmallWorld {
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
-            job.setMapOutputKeyClass(SmallWorld.Node.class);
-            job.setMapOutputValueClass(SmallWorld.Node.class);
-            job.setOutputKeyClass(SmallWorld.Node.class);
-            job.setOutputValueClass(SmallWorld.Node.class);
+            job.setMapOutputKeyClass(Text.class);
+            job.setMapOutputValueClass(Text.class);
+            job.setOutputKeyClass(Text.class);
+            job.setOutputValueClass(Text.class);
 
             job.setMapperClass(BFSMapper2.class);
             job.setReducerClass(BFSReduce2.class);
