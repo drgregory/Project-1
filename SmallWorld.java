@@ -486,7 +486,7 @@ public class SmallWorld {
             FileInputFormat.addInputPath(job, new Path("bfs-" + i + "-out"));
             FileOutputFormat.setOutputPath(job, new Path("bfs-"+ (i+1) +"-out"));
 
-	    i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
+	    //i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
 
             job.waitForCompletion(true);
             i++;
