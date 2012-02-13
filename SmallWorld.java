@@ -2,7 +2,7 @@
   CS 61C Project1: Small World
 
   Name: Gregory Roberts
-  Login: cs61c-il
+  Login: cs61c-il	
 
   Name: Kevin Funkhouser
   Login: cs61c-as
@@ -18,7 +18,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.Math;
 import java.util.*;
-import java.util.regex.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
@@ -27,7 +28,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -48,87 +48,95 @@ public class SmallWorld {
     public static final String DENOM_PATH = "denom.txt";
 
     // Example enumerated type, used by EValue and Counter example
-    public static enum ValueUse {EDGE};
-    
-    public static int dataFinishedCounter = 0;
-    
-    public static class NodeValue implements Writable {
-	public Text name;
-	public LongWritable dist;
-	public ArrayList<LongWritable> successors;
-	public boolean hasTraversed = false;
+    public static enum ValueUse {EDGE, SEARCH, DATA};
 
-	public NodeValue(Text n, long d,
-			 ArrayList<LongWritable> s) {
-	    name = n;
-	    dist = new LongWritable(d);
-	    successors = s;
-	}
-
-	public void write(DataOutput out) throws IOException {
-            name.write(out);
-	    dist.write(out);
-	}
-
-	public void readFields(DataInput in) throws IOException {
-	    name.set(in.readUTF());
-	    dist.set(in.readLong());
-        }
-
-        public void setDist(long toWhat) {
-	    dist.set(dist.get() + toWhat);
-	}
-
-	public void setHasTraversed(boolean toWhat) {
-	    hasTraversed = toWhat;
-	}
-
-        public String toString() {
-            return name.toString() + ": " + dist.get();
-        }
-    }	
-	
     // Example writable type
     public static class EValue implements Writable {
         public ValueUse use;
-        public long value;
+        public long from;
+		public long to;
+		public String names;
+		public String distances;
 
-        public EValue(ValueUse use, long value) {
+        public EValue(ValueUse use, long from, long to) {
             this.use = use;
-            this.value = value;
+            this.from = from;
+			this.to = to;
+			names = "";
+			distances = "";
         }
+		
+		public EValue (EValue e) {
+			this.use = e.use;
+			this.from = e.from;
+			this.to = e.to;
+			this.names = e.names;
+			this.distances = e.distances;
+		}	
+		
+		public EValue(ValueUse use, String d, String n) {
+			this.use = use;
+			distances = d;
+			names = n;
+			from = -1;
+			to = -1;
+		}	
+		
 
         public EValue() {
-            this(ValueUse.EDGE, 0);
+            this(ValueUse.EDGE, 0, 0);
         }
 
         // Serializes object - needed for Writable
         public void write(DataOutput out) throws IOException {
             out.writeUTF(use.name());
-            out.writeLong(value);
+            out.writeLong(from);
+			out.writeLong(to);
+			out.writeUTF(names);
+			out.writeUTF(distances);
         }
 
         // Deserializes object - needed for Writable
         public void readFields(DataInput in) throws IOException {
             use = ValueUse.valueOf(in.readUTF());
-            value = in.readLong();
+            from = in.readLong();
+			to = in.readLong();
+			names = in.readUTF();
+			distances = in.readUTF();
         }
+		
+		public void addDistance(long distance) {
+			this.distances += distance + " ";
+		}
 
-        public void set(ValueUse use, long value) {
-            this.use = use;
-            this.value = value;
-        }
+		public void addName(long name) {
+			this.names += name + " ";
+		}
 
-        public String toString() {
-            return use.name() + ": " + value;
-        }
+		public ValueUse getType() {
+			return use;
+		}
+
+		public long getTo() {
+			return to;
+		}
+
+		public void setDistances(String s) {
+			this.distances = s;
+		}
+
+		public void setNames(String s) {
+			this.names = s;
+		}	
     }
 
 
-    /* This example mapper loads in all edges but only propagates a subset.
+   
+	
+	/* This example mapper loads in all edges but only propagates a subset.
        You will need to modify this to propagate all edges, but it is 
        included to demonstate how to read & use the denom argument.         */
-    public static class LoaderMap extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable> {
+    public static class LoaderMap extends Mapper<LongWritable, LongWritable, LongWritable, EValue> {
         public long denom;
 
         /* Setup is called automatically once per map task. This will
@@ -151,46 +159,20 @@ public class SmallWorld {
             }
         }
 
-        /* Will need to modify to not lose any edges. */
-        @Override
+        /* Will need to modify to not loose any edges. */
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
-            // Send edge forward only if part of random subset
-            if (Math.random() < 1.0/denom) {
-                context.write(key, value);
-            }
-            // Example of using a counter (counter tagged by EDGE)
+			EValue edge = new EValue(ValueUse.EDGE, key.get(), value.get());
+			context.write(key, edge);
             context.getCounter(ValueUse.EDGE).increment(1);
         }
     }
-
-    /* Insert your mapreduces here
-       (still feel free to edit elsewhere) */
-    /* The second mapper . . . */
-    /*public static class ProcesserMap extends Mapper<NodeValue, ArrayWritable, NodeValue, LongWritable> {
-
-        public void map(LongWritable key, ArrayWritable value, Context context)
-                throws IOException, InterruptedException {
-	    if (key.dist() >= 0  && !key.hasTraversed) {
-		key.setHasTraversed(true);
-		for (LongWritable v : value) {
-		    context.write(key, v);
-		}
-	    }
-        }
-	}*/
-/* This example mapper loads in all edges but only propagates a subset.
-       You will need to modify this to propagate all edges, but it is 
-       included to demonstate how to read & use the denom argument.         */
-    public static class LoaderMap2 extends Mapper<LongWritable, LongWritable, Text, Text> {
-        public long denom;
-
-        /* Setup is called automatically once per map task. This will
-           read denom in from the DistributedCache, and it will be
-           available to each call of map later on via the instance
-           variable.                                                  */
-        @Override
-        public void setup(Context context) {
+	
+	public static class LoaderReduce extends Reducer<LongWritable, EValue, LongWritable, EValue> {
+		
+		public long denom;
+		
+		public void setup(Context context) {
             try {
                 Configuration conf = context.getConfiguration();
                 Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
@@ -204,211 +186,113 @@ public class SmallWorld {
                 System.err.println(ioe.toString());
             }
         }
+		
+		public void reduce(LongWritable key, Iterable<EValue> values, Context context)
+				throws IOException, InterruptedException {
+			EValue data = new EValue(ValueUse.DATA, key.get(), 0L);
+			if (Math.random() < 1.0 / denom) {
+			    EValue search = new EValue(ValueUse.SEARCH, key.get(), key.get());
+				search.addDistance(-1);
+				search.addName(key.get());				
+				context.write(key, data);
+				for (EValue e : values) {
+					context.write(key, e);
+					context.write(new LongWritable(e.getTo()), search);
+				}	
+			} else {
+				context.write(key, data);
+				for (EValue e : values) {
+					context.write(key, e);
+				}
+			}	
+		}
+	}	
+			
 
-        /* Will need to modify to not lose any edges. */
-        @Override
-        public void map(LongWritable key, LongWritable value, Context context)
-                throws IOException, InterruptedException {
-            int toBe = Math.random() < 1.0/denom ? 1 : 0;
-            int initialDist = toBe == 1 ? 0 : -1;
-	    Text keyT = new Text(key.toString() + " " + initialDist + " " + toBe + " 0");
-	    Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
-	    context.write(keyT, valueT);
-	    if (toBe == 1) {
-            	context.getCounter(ValueUse.EDGE).increment(1);
-	    }
-        }
-    }
-    public static class LoaderReducer extends Reducer<Text, Text, Text, Text> {
-	@Override
-        public void reduce(Text key, Iterable<Text> values,
-			   Context context) throws IOException, InterruptedException {
-	    Text concatText = new Text();
-	    String initialString = "";
-	    for (Text value : values) {
-	    	initialString += value.toString() + " $end ";
-	    }
-	    concatText.set(initialString);
-	    //Object[] s = mySuccessors.toArray();
-	    //int size = mySuccessors.size();
-	    //LongWritable[] successors = new LongWritable[size];
-	    //for (int i = 0; i < size; i += 1) {
-	    //	successors[i] = (LongWritable) s[i];
-	    //}
-	    //ArrayWritable writableSuccessors = new ArrayWritable(org.apache.hadoop.io.LongWritable, successors);
-	    //Text theName = new Text();
-	    //theName.set(key.toString());
-	    //NodeValue newKey = new NodeValue(theName, -1, mySuccessors);
-	    context.write(key, concatText);
+	public static class BFSMap extends Mapper<LongWritable, EValue, LongWritable, EValue> {
+		public void map(LongWritable key, EValue value, Context context)
+				throws IOException, InterruptedException {
+			context.write(key, value);
+		}
 	}
-    }
-    public static class BFSMapper extends Mapper<Text, Text, Text, Text> {
-    	
-    	public Pattern p = Pattern.compile("[\\S]+");
-    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ");
-    	public int getDistance(Text source) {
-    		String s = source.toString();
-    		Matcher m = p.matcher(s);
-    		m.find();
-		m.find();
-    		return Integer.parseInt(m.group(0));
-    	}
-    	public int getToBeTraversed(Text source) {
-    		String s = source.toString();
-    		Matcher m = p.matcher(s);
-    		m.find();
-		m.find();
-		m.find();
-    		return Integer.parseInt(m.group(0));
-    	}
-    	public int getHasBeenTraversed(Text source) {
-	    String s = source.toString();
-    		Matcher m = p.matcher(s);
-    		m.find();
-		m.find();
-		m.find();
-		m.find();
-    		return Integer.parseInt(m.group(0));
-    	}
-	public int getHasBeenTraversed(String s) {
-    		Matcher m = p.matcher(s);
-    		m.find();
-		m.find();
-		m.find();
-		m.find();
-    		return Integer.parseInt(m.group(0));
-    	}
-    	public int getName(String s) {
-    		Matcher m = p.matcher(s);
-    		m.find();
-    		return Integer.parseInt(m.group(0));
-    	}
 
-	public Pattern special = Pattern.compile("[$]search");
-	public String isSpecial = "$search";
-	
-    	public void map(Text key, Text values, Context context)
-    		throws IOException, InterruptedException {
-    		Matcher m = textDelimiter.matcher(values.toString());
-    		Boolean search = getToBeTraversed(key) == 1 && getHasBeenTraversed(key) == 0;
-    		if (search) {
-    			String whatToChange = key.toString();
-    			whatToChange = whatToChange.trim();
-    			whatToChange = whatToChange.substring(0, whatToChange.length() - 1).concat("1");
-    			key.set(whatToChange);
-    			while (m.find()) {
-    				String s = m.group(0);
-    				s = s.substring(0, s.length() - 6);
-    				Text t = new Text(s);
-    				Text specialSearch = new Text(isSpecial + getDistance(key));
-    				context.write(t, specialSearch);
-    				context.write(key, t);
-    			}
-    		} else {
-    			while (m.find()) {
-    				String current = m.group(0);
-    				current = current.substring(0, current.length() - 6);
-    				Text outputValue = new Text(current);
-    				context.write(key, outputValue);
-    			}
-    		}
-    		}
-    }
-    public static class BFSReducer extends Reducer<Text, Text, Text, Text> {
-
-    	public Pattern finder = Pattern.compile("[\\S]+");
-	
-	public String getName(Text source) {
-	    String s = source.toString();
-	    Matcher m = finder.matcher(s);
-	    m.find();
-	    return m.group(0);
-    	}
-    	
-    	public int getHasBeenTraversed(Text source) {
-	    String s = source.toString();
-    		Matcher m = finder.matcher(s);
-    		m.find();
-		m.find();
-		m.find();
-		m.find();
-    		return Integer.parseInt(m.group(0));
-    	}
-    	
-    	public int getDistance(Text source) {
-	    String s = source.toString();
-    		Matcher m = finder.matcher(s);
-    		m.find();
-    		m.find();
-    		return Integer.parseInt(m.group(0));
-    	}
-    	
-	Pattern p = Pattern.compile("[$]search[\\d]+");
-	@Override
-        public void reduce(Text key, Iterable<Text> values,
-			   Context context) throws IOException, InterruptedException {
-	    Boolean searchFrom = false;
-	    String concatVals = "";
-	    int distance = getDistance(key);
-	    for (Text v : values) {
-	    	String c = v.toString();
-	    	Matcher m = p.matcher(c);
-	    	if (m.matches()) {
-	    		searchFrom = true;
-	    		c = c.substring(7);
-	    		dataFinishedCounter += 1;
-	    		distance = Integer.parseInt(c) + 1;
-	    	} else {
-	    		concatVals += c + " $end ";
-	    	}
-	    }
-	    String k = getName(key);
-	    k += " " + distance;
-	    k += searchFrom ? " 1 " : " 0 ";
-	    k += getHasBeenTraversed(key);
-	    Text finalKey = new Text(k);
-	    Text finalVals = new Text(concatVals);
-	    context.write(finalKey, finalVals);
-	}
-    }
-    public static class CleanupMapper extends Mapper<Text, Text, LongWritable, LongWritable> {
-    	
-    	public static final LongWritable ONE = new LongWritable(1L);
-    	public Pattern textDelimiter = Pattern.compile("[\\S]+ [\\S]+ [\\S]+ [\\S]+ [$]end ");
-    	public Pattern p = Pattern.compile("[\\S]+");
-
-	public long getDistance(Text source) {
-    		String s = source.toString();
-    		Matcher m = p.matcher(s);
-    		m.find();
-		m.find();
-    		return Long.parseLong(m.group(0));
-    	}
-    	
-    	public void map(Text key, Text values, Context context)
-    		throws IOException, InterruptedException {
-    		Matcher m = textDelimiter.matcher(values.toString());
-    		while (m.find()) {
-    			long thisDist = getDistance(key);
-    			LongWritable distKey = new LongWritable(thisDist);
-    			context.write(distKey, ONE);
-    		}
-    		}
-    }
-    public static class CleanupReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
-	@Override
-        public void reduce(LongWritable key, Iterable<LongWritable> values,
-			   Context context) throws IOException, InterruptedException {
-			if (key.get() >= 0) {
-			long sum = 0L;
-	    	for (LongWritable value : values) {
-	    		sum += value.get();
-	    	}
-		LongWritable finalSum = new LongWritable(sum);
-	    	context.write(key, finalSum);
+	public static class BFSReduce extends Reducer<LongWritable, EValue, LongWritable, EValue> {
+		public void reduce(LongWritable key, Iterable<EValue> values, Context context)
+				throws IOException, InterruptedException {
+		    boolean hasChanged = false;
+			ArrayList<EValue> stored = new ArrayList<EValue>();
+			EValue data = new EValue(ValueUse.DATA, -1, -1);
+			for (EValue e : values) {
+				if (e.getType() == ValueUse.DATA) {
+				    data = new EValue(e);
+				} else {
+					EValue temp = new EValue(e);
+					stored.add(temp);
+				}
 			}
+			ArrayList<EValue> nonSearch = new ArrayList<EValue>();
+			for (int i = 0; i < stored.size(); i += 1) {
+				EValue e = stored.get(i);
+				if (e.getType() == ValueUse.SEARCH) {
+					String names = e.names;
+					String distances = e.distances;
+					Pattern p = Pattern.compile("[-]?[\\d]+ ");
+					Matcher m1 = p.matcher(names);
+					Matcher m2 = p.matcher(distances);
+					while (m1.find() && m2.find()) {
+						if (!data.names.contains(m1.group(0))) {
+							data.names += m1.group(0);
+							long d = Long.parseLong(m2.group(0).trim()) + 1;
+							data.addDistance(d);
+							hasChanged = true;
+						}
+					}
+				} else {
+					EValue temp = new EValue(e);
+					nonSearch.add(temp);
+				}	
+			}
+			EValue sentSearch = new EValue(ValueUse.SEARCH, data.distances, data.names);
+			for (EValue e : nonSearch) {
+				context.write(new LongWritable(e.getTo()), sentSearch);
+				context.write(key, e);
+			}
+			if (hasChanged) {	
+			    context.getCounter(ValueUse.DATA).increment(1);	
+			}								    
+			context.write(key, data);
+		}
+	}	
+		
+    
+	public static class CleanupMap extends Mapper<LongWritable, EValue, LongWritable, LongWritable> {
+		public void map(LongWritable key, EValue value, Context context)
+				throws IOException, InterruptedException {
+			LongWritable ONE = new LongWritable(1L);
+			if (value.getType() == ValueUse.DATA) {
+				String d = value.distances;
+				Pattern p = Pattern.compile("[\\d]+ ");
+				Matcher m = p.matcher(d);
+				while (m.find()) {
+					long distance = Long.parseLong(m.group(0).trim());
+					context.write(new LongWritable(distance), ONE);
+				}
+			}
+		}
 	}
-    }
+
+	public static class CleanupReduce extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
+		public void reduce(LongWritable key, Iterable<LongWritable> values, Context context)
+				throws IOException, InterruptedException {
+			long sum = 0;
+			for (LongWritable v : values) {
+				sum += 1;
+			}
+			context.write(key, new LongWritable(sum));
+		}
+	}
+
+
     // Shares denom argument across the cluster via DistributedCache
     public static void shareDenom(String denomStr, Configuration conf) {
         try {
@@ -441,13 +325,13 @@ public class SmallWorld {
         Job job = new Job(conf, "load graph");
         job.setJarByClass(SmallWorld.class);
 
-        job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(Text.class);
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(Text.class);
+        job.setMapOutputKeyClass(LongWritable.class);
+        job.setMapOutputValueClass(EValue.class);
+        job.setOutputKeyClass(LongWritable.class);
+        job.setOutputValueClass(EValue.class);
 
-        job.setMapperClass(LoaderMap2.class);
-        job.setReducerClass(LoaderReducer.class);
+        job.setMapperClass(LoaderMap.class);
+        job.setReducerClass(LoaderReduce.class);
 
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(SequenceFileOutputFormat.class);
@@ -471,13 +355,13 @@ public class SmallWorld {
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
-            job.setMapOutputKeyClass(Text.class);
-            job.setMapOutputValueClass(Text.class);
-            job.setOutputKeyClass(Text.class);
-            job.setOutputValueClass(Text.class);
+            job.setMapOutputKeyClass(LongWritable.class);
+            job.setMapOutputValueClass(EValue.class);
+            job.setOutputKeyClass(LongWritable.class);
+            job.setOutputValueClass(EValue.class);
 
-            job.setMapperClass(BFSMapper.class);
-            job.setReducerClass(BFSReducer.class);
+            job.setMapperClass(BFSMap.class);
+            job.setReducerClass(BFSReduce.class);
 
             job.setInputFormatClass(SequenceFileInputFormat.class);
             job.setOutputFormatClass(SequenceFileOutputFormat.class);
@@ -485,12 +369,12 @@ public class SmallWorld {
             // Notice how each mapreduce job gets gets its own output dir
             FileInputFormat.addInputPath(job, new Path("bfs-" + i + "-out"));
             FileOutputFormat.setOutputPath(job, new Path("bfs-"+ (i+1) +"-out"));
-
-	    //i = dataFinishedCounter > 0 ? i : MAX_ITERATIONS;
-
             job.waitForCompletion(true);
-            i++;
-            dataFinishedCounter = 0;
+	    if (job.getCounters().findCounter(ValueUse.DATA).getValue() == 0) {
+	    	i++;
+	    	break;
+	    }
+	    i++;
         }
 
         // Mapreduce config for histogram computation
@@ -502,9 +386,9 @@ public class SmallWorld {
         job.setOutputKeyClass(LongWritable.class);
         job.setOutputValueClass(LongWritable.class);
 
-        job.setMapperClass(CleanupMapper.class);
-        job.setCombinerClass(CleanupReducer.class);
-        job.setReducerClass(CleanupReducer.class);
+        job.setMapperClass(CleanupMap.class);
+        //job.setCombinerClass(Reducer.class);
+        job.setReducerClass(CleanupReduce.class);
 
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
