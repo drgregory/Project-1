@@ -1,0 +1,70 @@
+Project 1 part 2
+Greg Roberts cs61c-il
+Kevin Funkhouser cs61c-as	
+	
+	1.
+6 Cluster - 
+	2172 seconds = 36 min 12 seconds
+	7 starting nodes, 10 searches
+	36 reducers
+	
+9 Cluster - 
+	1768 seconds = 29 min 28 seconds
+	11 starting nodes, 11 searches
+	36 reducers
+	
+12 Cluster -
+	1336 seconds = 22 min 16 seconds
+	11 starting nodes, 10 searches
+	36 reducers
+	
+	2. For the Hollywood dataset (6 cluster) with 7 starting nodes, 50% and 90% of the nodes were
+	at most 4 branches away from each other. The 95th percentile was 5 branches
+	away.
+	With the 9 cluster and 11 starting nodes, 50% of the data was 4 branches away,
+	and 90 and 95% of the data was 5 branches away.
+	With the 12 cluster and 11 starting nodes, 50% and 90% of the data was 4 branches away
+	and the 95th percentile was 5 branches away.
+	
+	3. We took number of searches to mean the number of starting nodes for each set of clusters.  This
+	indicates how many different branches/searches were embarked upon by the algorithm.
+	19,519,080,497 (6 cluster) is the estimate of total bytes (read in) * (number of starting nodes).
+	The total MB/s was 8.99 MB/s which is 1.50 MB/s per processor
+	30,672,609,902 (9 cluster) is the estimate of total bytes (read in) * (number of starting nodes).
+	The total MB/s was 17.35 MB/s which is 1.93 MB/s per processor
+	30,672,714,391 (12 cluster) is the estimate of total bytes (read in) * (number of starting nodes).
+	The total MB/s was 22.96 MB/s which is 1.91 MB/s per processor
+	
+	4. The 9 cluster was faster than the 6 cluster and the 12 cluster even faster.  Going from 6 to
+	9 gave about a 93% speedup and going form 6 to 12 gave about a 155% speedup in terms of MB/s.  Therefore,
+	Hadoop does a good job parallelizing the work.  It is a case of strong scaling because the addition of
+	more machines allowed the algorithm to run faster.  However, it also appeared to be a case of weak scaling.
+	The amount of MB/s per processor went up from the 6 cluster to the 9 cluster and the 12 cluster stayed about
+	the same as the 9 cluster.  Since weak scaling is when more machines allow processing of more data in a fixed
+	amount of time, it can be looked at as a measure of processor efficiency with increased numbers of processors.  
+	When more processors are added, can they still do the same amount or more work per second and in this case
+	they were able to.
+
+	5. The combiner improves performance only slightly in the final reduce of the
+	the program.  Its purpose is to pre-process data that is on the same processor so that
+	the final reducer has to deal with less total pairs.  Because of the multiple reducers in the
+	first place, this does speed up the map-reduce but less so than if there was only a single reducer.
+	You can't use a combiner in the other map-reduces because there is only a single key
+	to a single value for each step.  The final reduce is unique because you send multiple pairs
+	for a single map and the combiner is able to collate these before sending it
+	to the reducer.
+
+	6. 	6 Cluster $4.08 total -> $0.21 per GB
+		9 Cluster $6.12 total -> $0.20 per GB
+		12 Cluster $8.16 total -> $0.27 per GB
+		
+	7. Total usage, completed runs cost $18.36
+		plus failed runs of about $38 dollars 
+		(Approximation due to EC2 returning above $1000 dollars)
+		for a total of roughly $56 dollars
+	
+	8. We ran our new code and weren't able to get within 2x the speed of the reference.
+	9. The concept of the project was very interesting.  One constructive criticism we had was for Part 2 to
+	have access to a specific run of the MapReduce SmallWorld algorithm for students to gather information and
+	do calculations from.  This way, the information would still be able to be analyzed, but not everybody would 
+	have had to run it on the clusters and this would save time and money.
