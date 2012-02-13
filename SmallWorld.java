@@ -48,6 +48,7 @@ public class SmallWorld {
     public static final String DENOM_PATH = "denom.txt";
 
     // Example enumerated type, used by EValue and Counter example
+<<<<<<< HEAD
     public static enum ValueUse {EDGE, SEARCH, DATA};
 
     // Example writable type
@@ -137,6 +138,14 @@ public class SmallWorld {
        You will need to modify this to propagate all edges, but it is 
        included to demonstate how to read & use the denom argument.         */
     public static class LoaderMap extends Mapper<LongWritable, LongWritable, LongWritable, EValue> {
+=======
+    public static enum ValueUse {EDGE,VERTEX};
+    
+/* This example mapper loads in all edges but only propagates a subset.
+       You will need to modify this to propagate all edges, but it is 
+       included to demonstate how to read & use the denom argument.         */
+    public static class LoaderMap2 extends Mapper<LongWritable, LongWritable, Text, Text> {
+>>>>>>> 815f3c094f21c9cbdf256a05ee9cca572a56d03d
         public long denom;
 
         /* Setup is called automatically once per map task. This will
@@ -162,6 +171,7 @@ public class SmallWorld {
         /* Will need to modify to not loose any edges. */
         public void map(LongWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
+<<<<<<< HEAD
 			EValue edge = new EValue(ValueUse.EDGE, key.get(), value.get());
 			context.write(key, edge);
             context.getCounter(ValueUse.EDGE).increment(1);
@@ -173,6 +183,23 @@ public class SmallWorld {
 		public long denom;
 		
 		public void setup(Context context) {
+=======
+	    Text keyT = new Text(key.toString() + " " + "chooseDist" + " " + "chooseSearch" + " 0");
+	    Text valueT = new Text(value.toString() + " -1 " + "0" + " 0");	    
+	    context.write(keyT, valueT);
+	    context.getCounter(ValueUse.EDGE).increment(1);
+        }
+    }
+    public static class LoaderReducer extends Reducer<Text, Text, Text, Text> {
+    	public long denom;
+
+        /* Setup is called automatically once per map task. This will
+           read denom in from the DistributedCache, and it will be
+           available to each call of map later on via the instance
+           variable.                                                  */
+        @Override
+        public void setup(Context context) {
+>>>>>>> 815f3c094f21c9cbdf256a05ee9cca572a56d03d
             try {
                 Configuration conf = context.getConfiguration();
                 Path cachedDenomPath = DistributedCache.getLocalCacheFiles(conf)[0];
@@ -186,6 +213,7 @@ public class SmallWorld {
                 System.err.println(ioe.toString());
             }
         }
+<<<<<<< HEAD
 		
 		public void reduce(LongWritable key, Iterable<EValue> values, Context context)
 				throws IOException, InterruptedException {
@@ -214,6 +242,30 @@ public class SmallWorld {
 				throws IOException, InterruptedException {
 			context.write(key, value);
 		}
+=======
+	@Override
+        public void reduce(Text key, Iterable<Text> values,
+			   Context context) throws IOException, InterruptedException {
+	    int toBe = Math.random() < 1.0/denom ? 1 : 0;
+            int initialDist = toBe == 1 ? 0 : -1;
+            String str = key.toString();
+            if (toBe != 0) {
+            	str = str.replace("chooseDist", "0");
+            	str = str.replace("chooseSearch", "1");
+            } else {
+            	str = str.replace("chooseDist", "-1");
+            	str = str.replace("chooseSearch", "0");
+            }
+            key.set(str);
+	    Text concatText = new Text();
+	    String initialString = "";
+	    for (Text value : values) {
+	    	initialString += value.toString() + " $end ";
+	    }
+	    concatText.set(initialString);
+	    context.write(key, concatText);
+	    context.getCounter(ValueUse.VERTEX).increment(1);
+>>>>>>> 815f3c094f21c9cbdf256a05ee9cca572a56d03d
 	}
 
 	public static class BFSReduce extends Reducer<LongWritable, EValue, LongWritable, EValue> {
@@ -347,11 +399,14 @@ public class SmallWorld {
         System.out.println("Read in " + 
                    job.getCounters().findCounter(ValueUse.EDGE).getValue() + 
                            " edges");
+                           
+        int iteration_adjusted_for_data_size = 	Math.max(100 * (job.getCounters().findCounter(ValueUse.VERTEX).getValue() /
+        					job.getCounters().findCounter(ValueUse.EDGE).getValue()), 7);			
 
         // Repeats your BFS mapreduce
         int i=0;
         // Will need to change terminating conditions to respond to data
-        while (i<MAX_ITERATIONS) {
+        while (i<MAX_ITERATIONS && i < iteration_adjusted_for_data_size) {
             job = new Job(conf, "bfs" + i);
             job.setJarByClass(SmallWorld.class);
 
@@ -369,12 +424,19 @@ public class SmallWorld {
             // Notice how each mapreduce job gets gets its own output dir
             FileInputFormat.addInputPath(job, new Path("bfs-" + i + "-out"));
             FileOutputFormat.setOutputPath(job, new Path("bfs-"+ (i+1) +"-out"));
+<<<<<<< HEAD
             job.waitForCompletion(true);
 	    if (job.getCounters().findCounter(ValueUse.DATA).getValue() == 0) {
 	    	i++;
 	    	break;
 	    }
 	    i++;
+=======
+
+
+            job.waitForCompletion(true);
+            i++;
+>>>>>>> 815f3c094f21c9cbdf256a05ee9cca572a56d03d
         }
 
         // Mapreduce config for histogram computation
